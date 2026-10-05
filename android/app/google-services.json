@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "754984974782",
+    "project_id": "krishi-queue-5d66f",
+    "storage_bucket": "krishi-queue-5d66f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:754984974782:android:31e97e41e996adf85721ef",
+        "android_client_info": {
+          "package_name": "com.justy.krishiqueue"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC9b7mHydgYV3qqarBEbUmeZqrr6z_AQLI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
