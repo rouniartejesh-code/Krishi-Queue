@@ -34,7 +34,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       _auth = FirebaseAuth.instance;
-    } catch (_) {
+    } on FirebaseException {
       // Keep the login screen usable in previews and show a clear message
       // when Firebase has not been configured for this build.
       _auth = null;
