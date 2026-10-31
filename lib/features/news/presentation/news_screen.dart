@@ -8,10 +8,7 @@ import '../domain/news_article.dart';
 class NewsScreen extends StatefulWidget {
   final FarmerNewsApi api;
 
-  const NewsScreen({
-    super.key,
-    required this.api,
-  });
+  const NewsScreen({super.key, required this.api});
 
   @override
   State<NewsScreen> createState() => _NewsScreenState();
@@ -71,21 +68,15 @@ class _NewsScreenState extends State<NewsScreen> {
               child: Center(child: CircularProgressIndicator()),
             )
           else if (_error != null && _articles.isEmpty)
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: _buildError(),
-            )
+            SliverFillRemaining(hasScrollBody: false, child: _buildError())
           else if (_articles.isEmpty)
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: _buildEmpty(),
-            )
+            SliverFillRemaining(hasScrollBody: false, child: _buildEmpty())
           else
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
               sliver: SliverList.separated(
                 itemCount: _articles.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 14),
+                separatorBuilder: (_, _) => const SizedBox(height: 14),
                 itemBuilder: (_, index) => _NewsCard(article: _articles[index]),
               ),
             ),
@@ -105,18 +96,12 @@ class _NewsScreenState extends State<NewsScreen> {
               children: const [
                 Text(
                   'Farmer News',
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w900,
-                  ),
+                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900),
                 ),
                 SizedBox(height: 4),
                 Text(
                   'Agriculture updates that matter to you',
-                  style: TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontSize: 13,
-                  ),
+                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
                 ),
               ],
             ),
@@ -191,12 +176,18 @@ class _NewsCard extends StatelessWidget {
 
   Future<void> _openArticle() async {
     final uri = Uri.tryParse(article.url);
-    if (uri == null) return;
+    if (uri == null || (uri.scheme != 'https' && uri.scheme != 'http')) {
+      return;
+    }
 
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   String _timeAgo() {
+    if (article.publishedAt.millisecondsSinceEpoch == 0) {
+      return 'Date unavailable';
+    }
+
     final difference = DateTime.now().difference(article.publishedAt);
     if (difference.isNegative || difference.inMinutes < 1) return 'Just now';
     if (difference.inMinutes < 60) return '${difference.inMinutes}m ago';
@@ -219,7 +210,10 @@ class _NewsCard extends StatelessWidget {
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFE8F5E9),
                       borderRadius: BorderRadius.circular(8),
@@ -268,7 +262,7 @@ class _NewsCard extends StatelessWidget {
                 child: Image.network(
                   article.imageUrl!,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const _ImageFallback(),
+                  errorBuilder: (_, _, _) => const _ImageFallback(),
                   loadingBuilder: (context, child, progress) {
                     if (progress == null) return child;
                     return const _ImageFallback(showLoading: true);
@@ -276,10 +270,7 @@ class _NewsCard extends StatelessWidget {
                 ),
               )
             else
-              const AspectRatio(
-                aspectRatio: 16 / 9,
-                child: _ImageFallback(),
-              ),
+              const AspectRatio(aspectRatio: 16 / 9, child: _ImageFallback()),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
               child: Column(

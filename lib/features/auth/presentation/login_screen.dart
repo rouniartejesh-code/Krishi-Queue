@@ -7,10 +7,7 @@ import '../domain/user_role.dart';
 class LoginScreen extends StatefulWidget {
   final ValueChanged<UserRole>? onLoginSuccess;
 
-  const LoginScreen({
-    super.key,
-    this.onLoginSuccess,
-  });
+  const LoginScreen({super.key, this.onLoginSuccess});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -28,16 +25,24 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _verificationId;
   int? _resendToken;
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  FirebaseAuth? _auth;
 
   @override
   void initState() {
     super.initState();
-    _setDemoPhone();
+    _clearPhone();
+
+    try {
+      _auth = FirebaseAuth.instance;
+    } catch (_) {
+      // Keep the login screen usable in previews and show a clear message
+      // when Firebase has not been configured for this build.
+      _auth = null;
+    }
   }
 
-  void _setDemoPhone() {
-    _phoneController.text = _role.demoPhone;
+  void _clearPhone() {
+    _phoneController.clear();
   }
 
   @override
@@ -48,12 +53,16 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _sendOtp() async {
+    final auth = _auth;
+    if (auth == null) {
+      _showMessage('Phone sign-in is not configured for this build.');
+      return;
+    }
+
     final phone = _phoneController.text.trim();
 
-    if (phone.length != 10) {
-      _showMessage(
-        'Enter a valid 10-digit mobile number.',
-      );
+    if (!RegExp(r'^\d{10}$').hasMatch(phone)) {
+      _showMessage('Enter a valid 10-digit mobile number.');
       return;
     }
 
@@ -66,12 +75,12 @@ class _LoginScreenState extends State<LoginScreen> {
     final fullPhoneNumber = '+91$phone';
 
     try {
-      await _auth.verifyPhoneNumber(
+      await auth.verifyPhoneNumber(
         phoneNumber: fullPhoneNumber,
 
         verificationCompleted: (PhoneAuthCredential credential) async {
           try {
-            await _auth.signInWithCredential(credential);
+            await auth.signInWithCredential(credential);
 
             if (!mounted) return;
 
@@ -79,7 +88,7 @@ class _LoginScreenState extends State<LoginScreen> {
               _loading = false;
             });
 
-            _handleSuccessfulLogin();
+            await _handleSuccessfulLogin(auth);
           } on FirebaseAuthException catch (e) {
             if (!mounted) return;
 
@@ -87,9 +96,7 @@ class _LoginScreenState extends State<LoginScreen> {
               _loading = false;
             });
 
-            _showMessage(
-              _firebaseErrorMessage(e),
-            );
+            _showMessage(_firebaseErrorMessage(e));
           }
         },
 
@@ -100,9 +107,7 @@ class _LoginScreenState extends State<LoginScreen> {
             _loading = false;
           });
 
-          _showMessage(
-            _firebaseErrorMessage(e),
-          );
+          _showMessage(_firebaseErrorMessage(e));
         },
 
         codeSent: (String verificationId, int? resendToken) {
@@ -115,9 +120,7 @@ class _LoginScreenState extends State<LoginScreen> {
             _resendToken = resendToken;
           });
 
-          _showMessage(
-            'OTP sent to +91 $phone',
-          );
+          _showMessage('OTP sent to +91 $phone');
         },
 
         codeAutoRetrievalTimeout: (String verificationId) {
@@ -133,28 +136,28 @@ class _LoginScreenState extends State<LoginScreen> {
         _loading = false;
       });
 
-      _showMessage(
-        'Unable to send OTP. Please try again.',
-      );
+      _showMessage('Unable to send OTP. Please try again.');
     }
   }
 
   Future<void> _verifyOtp() async {
+    final auth = _auth;
+    if (auth == null) {
+      _showMessage('Phone sign-in is not configured for this build.');
+      return;
+    }
+
     final otp = _otpController.text.trim();
 
     if (otp.length != 6) {
-      _showMessage(
-        'Enter the 6-digit OTP.',
-      );
+      _showMessage('Enter the 6-digit OTP.');
       return;
     }
 
     final verificationId = _verificationId;
 
     if (verificationId == null) {
-      _showMessage(
-        'OTP session expired. Please request a new OTP.',
-      );
+      _showMessage('OTP session expired. Please request a new OTP.');
       return;
     }
 
@@ -170,7 +173,7 @@ class _LoginScreenState extends State<LoginScreen> {
         smsCode: otp,
       );
 
-      await _auth.signInWithCredential(credential);
+      await auth.signInWithCredential(credential);
 
       if (!mounted) return;
 
@@ -178,7 +181,7 @@ class _LoginScreenState extends State<LoginScreen> {
         _loading = false;
       });
 
-      _handleSuccessfulLogin();
+      await _handleSuccessfulLogin(auth);
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
 
@@ -186,9 +189,7 @@ class _LoginScreenState extends State<LoginScreen> {
         _loading = false;
       });
 
-      _showMessage(
-        _firebaseErrorMessage(e),
-      );
+      _showMessage(_firebaseErrorMessage(e));
     } catch (e) {
       if (!mounted) return;
 
@@ -196,23 +197,61 @@ class _LoginScreenState extends State<LoginScreen> {
         _loading = false;
       });
 
-      _showMessage(
-        'OTP verification failed. Please try again.',
-      );
+      _showMessage('OTP verification failed. Please try again.');
     }
   }
 
-  void _handleSuccessfulLogin() {
-    final user = _auth.currentUser;
+  Future<void> _handleSuccessfulLogin(FirebaseAuth auth) async {
+    final user = auth.currentUser;
 
     if (user == null) {
-      _showMessage(
-        'Authentication failed. Please try again.',
-      );
+      _showMessage('Authentication failed. Please try again.');
       return;
     }
 
-    widget.onLoginSuccess?.call(_role);
+    try {
+      final token = await user.getIdTokenResult(true);
+      final roleClaim = token.claims?['role'];
+      final authorizedRole = switch (roleClaim) {
+        'farmer' => UserRole.farmer,
+        'staff' => UserRole.staff,
+        'driver' => UserRole.driver,
+        'admin' => UserRole.admin,
+        null => UserRole.farmer,
+        _ => null,
+      };
+
+      if (!mounted) return;
+
+      if (authorizedRole == null || authorizedRole != _role) {
+        try {
+          await auth.signOut();
+        } catch (_) {}
+        if (!mounted) return;
+        _showMessage(
+          authorizedRole == null
+              ? 'This account has no valid app role. Contact your administrator.'
+              : 'This account is not authorized for ${_role.label} access.',
+        );
+        return;
+      }
+
+      widget.onLoginSuccess?.call(authorizedRole);
+    } on FirebaseAuthException catch (error) {
+      if (!mounted) return;
+      try {
+        await auth.signOut();
+      } catch (_) {}
+      _showMessage(_firebaseErrorMessage(error));
+    } catch (_) {
+      if (!mounted) return;
+      try {
+        await auth.signOut();
+      } catch (_) {}
+      _showMessage(
+        'Could not verify this account’s app role. Please try again.',
+      );
+    }
   }
 
   Future<void> _resendOtp() async {
@@ -230,7 +269,7 @@ class _LoginScreenState extends State<LoginScreen> {
       _otpController.clear();
       _verificationId = null;
       _resendToken = null;
-      _setDemoPhone();
+      _clearPhone();
     });
   }
 
@@ -250,11 +289,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-        ),
-      );
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   String _firebaseErrorMessage(FirebaseAuthException e) {
@@ -294,16 +329,9 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(
-              24,
-              30,
-              24,
-              24,
-            ),
+            padding: const EdgeInsets.fromLTRB(24, 30, 24, 24),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: 460,
-              ),
+              constraints: const BoxConstraints(maxWidth: 460),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -325,10 +353,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   const Text(
                     'Krishi Queue',
-                    style: TextStyle(
-                      fontSize: 31,
-                      fontWeight: FontWeight.w900,
-                    ),
+                    style: TextStyle(fontSize: 31, fontWeight: FontWeight.w900),
                   ),
 
                   const SizedBox(height: 6),
@@ -344,10 +369,17 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 28),
 
                   const Text(
+                    'Welcome back',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  Text(
                     'Choose access',
                     style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
                     ),
                   ),
 
@@ -415,9 +447,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       keyboardType: TextInputType.phone,
                       maxLength: 10,
                       decoration: const InputDecoration(
-                        prefixIcon: Icon(
-                          Icons.phone_outlined,
-                        ),
+                        prefixIcon: Icon(Icons.phone_outlined),
                         prefixText: '+91  ',
                         hintText: 'Mobile number',
                         counterText: '',
@@ -438,7 +468,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             )
                           : Text(
-                              'Send ${_role.label} OTP',
+                              'Send OTP',
                               style: const TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w800,
@@ -503,16 +533,12 @@ class _LoginScreenState extends State<LoginScreen> {
                       children: [
                         TextButton(
                           onPressed: _loading ? null : _resendOtp,
-                          child: const Text(
-                            'Resend OTP',
-                          ),
+                          child: const Text('Resend OTP'),
                         ),
                         const SizedBox(width: 8),
                         TextButton(
                           onPressed: _loading ? null : _changeMobile,
-                          child: const Text(
-                            'Change mobile',
-                          ),
+                          child: const Text('Change mobile'),
                         ),
                       ],
                     ),
@@ -525,9 +551,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     decoration: BoxDecoration(
                       color: const Color(0xFFF7F8F5),
                       borderRadius: BorderRadius.circular(15),
-                      border: Border.all(
-                        color: Colors.grey.shade200,
-                      ),
+                      border: Border.all(color: Colors.grey.shade200),
                     ),
                     child: Row(
                       children: [
@@ -595,21 +619,13 @@ class _RoleChip extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(15),
       child: AnimatedContainer(
-        duration: const Duration(
-          milliseconds: 160,
-        ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 12,
-        ),
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: selected
-              ? const Color(0xFFE8F5E9)
-              : Colors.white,
+          color: selected ? const Color(0xFFE8F5E9) : Colors.white,
           borderRadius: BorderRadius.circular(15),
           border: Border.all(
-            color: selected
-                ? AppTheme.primaryGreen
-                : Colors.grey.shade200,
+            color: selected ? AppTheme.primaryGreen : Colors.grey.shade200,
             width: selected ? 1.5 : 1,
           ),
         ),
@@ -618,9 +634,7 @@ class _RoleChip extends StatelessWidget {
             Icon(
               _icon,
               size: 20,
-              color: selected
-                  ? AppTheme.primaryGreen
-                  : AppTheme.textSecondary,
+              color: selected ? AppTheme.primaryGreen : AppTheme.textSecondary,
             ),
 
             const SizedBox(width: 8),
@@ -630,9 +644,7 @@ class _RoleChip extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
-                color: selected
-                    ? AppTheme.primaryGreen
-                    : AppTheme.textPrimary,
+                color: selected ? AppTheme.primaryGreen : AppTheme.textPrimary,
               ),
             ),
           ],

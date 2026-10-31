@@ -1,12 +1,5 @@
-# Krishi Queue AI Chat polish
+# AI Chat Notes
 
-Added contextual quick-action infrastructure for the AI Chat feature:
-- Token/QR actions
-- Queue/ETA actions
-- Booking/slot actions
-- Payment/bill actions
-- Market-price actions
-- Procurement/crop/weighing actions
-- Generic welcome quick actions
+The chat offers context-sensitive quick actions for tokens and QR codes, queue and ETA, bookings and slots, payments and bills, market prices, procurement, crops, and weighing.
 
-The existing API/provider implementation is intentionally left unchanged.
+OpenRouter is the preferred provider and Gemini is the fallback. Both integrations are optional and require API keys supplied through `--dart-define`; see the project README. The app no longer ships provider keys in source.

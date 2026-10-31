@@ -36,12 +36,9 @@ abstract class MarketPriceRepository {
 class MarketPriceRepositoryImpl implements MarketPriceRepository {
   const MarketPriceRepositoryImpl();
 
-  static const String _resourceId =
-      '9ef84268-d588-465a-a308-a864a43d0070';
+  static const String _resourceId = '9ef84268-d588-465a-a308-a864a43d0070';
 
-  // Move this key to a backend before production deployment.
-  static const String _apiKey =
-      '579b464db66ec23bdd000001b099fdb1197345055e3f5b428f067544';
+  static const String _apiKey = String.fromEnvironment('DATA_GOV_IN_API_KEY');
 
   static const String _endpoint =
       'https://api.data.gov.in/resource/$_resourceId';
@@ -51,6 +48,12 @@ class MarketPriceRepositoryImpl implements MarketPriceRepository {
 
   @override
   Future<List<MarketPrice>> getMarketPrices() async {
+    if (_apiKey.trim().isEmpty) {
+      throw Exception(
+        'Market-price data is not configured. Set DATA_GOV_IN_API_KEY at build time.',
+      );
+    }
+
     Object? lastError;
 
     for (var attempt = 1; attempt <= _maxAttempts; attempt++) {
@@ -63,14 +66,11 @@ class MarketPriceRepositoryImpl implements MarketPriceRepository {
           break;
         }
 
-        await Future<void>.delayed(
-          Duration(seconds: attempt),
-        );
+        await Future<void>.delayed(Duration(seconds: attempt));
       }
     }
 
-    throw lastError ??
-        Exception('Government market-price API request failed.');
+    throw lastError ?? Exception('Government market-price API request failed.');
   }
 
   Future<List<MarketPrice>> _fetchPage() async {
@@ -84,12 +84,7 @@ class MarketPriceRepositoryImpl implements MarketPriceRepository {
     );
 
     final response = await http
-        .get(
-          uri,
-          headers: const {
-            'Accept': 'application/json',
-          },
-        )
+        .get(uri, headers: const {'Accept': 'application/json'})
         .timeout(const Duration(seconds: 20));
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -195,10 +190,7 @@ class MarketPriceRepositoryImpl implements MarketPriceRepository {
     );
   }
 
-  String _stringValue(
-    dynamic value, {
-    String fallback = '',
-  }) {
+  String _stringValue(dynamic value, {String fallback = ''}) {
     if (value == null) {
       return fallback;
     }

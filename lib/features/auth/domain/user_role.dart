@@ -1,9 +1,4 @@
-enum UserRole {
-  farmer,
-  staff,
-  driver,
-  admin,
-}
+enum UserRole { farmer, staff, driver, admin }
 
 extension UserRoleDetails on UserRole {
   String get label {
@@ -42,19 +37,6 @@ extension UserRoleDetails on UserRole {
         return 'View assigned vehicles and arrival status.';
       case UserRole.admin:
         return 'Monitor centre operations and procurement status.';
-    }
-  }
-
-  String get demoPhone {
-    switch (this) {
-      case UserRole.farmer:
-        return '9000000001';
-      case UserRole.staff:
-        return '9000000002';
-      case UserRole.driver:
-        return '9000000003';
-      case UserRole.admin:
-        return '9000000004';
     }
   }
 }

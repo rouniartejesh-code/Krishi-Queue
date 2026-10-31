@@ -10,9 +10,7 @@ import 'openrouter_config.dart';
 class GeminiAiChatApi {
   final http.Client _client;
 
-  GeminiAiChatApi({
-    http.Client? client,
-  }) : _client = client ?? http.Client();
+  GeminiAiChatApi({http.Client? client}) : _client = client ?? http.Client();
 
   static const _systemInstruction = '''
 You are Krishi Assistant, the in-app support assistant for the Krishi Queue application.
@@ -78,35 +76,40 @@ Never claim that you booked, cancelled, changed or paid for anything.
 ''';
 
   Future<AiChatResponse> send(AiChatRequest request) async {
-    // OpenRouter is attempted first because Gemini has been returning
-    // temporary capacity errors.
-    try {
-      return await _sendOpenRouter(request).timeout(
-        const Duration(seconds: 8),
-      );
-    } catch (_) {
-      // Continue to Gemini fallback.
+    var providerConfigured = false;
+
+    // OpenRouter is preferred when configured; Gemini remains a fallback.
+    if (OpenRouterConfig.apiKey.trim().isNotEmpty) {
+      providerConfigured = true;
+      try {
+        return await _sendOpenRouter(request)
+            .timeout(const Duration(seconds: 8));
+      } catch (_) {
+        // Try Gemini if it is configured.
+      }
     }
 
-    try {
-      return await _sendGemini(request).timeout(
-        const Duration(seconds: 8),
-      );
-    } catch (_) {
+    if (GeminiConfig.apiKey.trim().isNotEmpty) {
+      providerConfigured = true;
+      try {
+        return await _sendGemini(request).timeout(const Duration(seconds: 8));
+      } catch (_) {
+        // Report one stable message without leaking provider responses.
+      }
+    }
+
+    if (!providerConfigured) {
       throw Exception(
-        'AI service is temporarily unavailable. Please try again.',
+        'AI chat is not configured. Set OPENROUTER_API_KEY or GEMINI_API_KEY at build time.',
       );
     }
+
+    throw Exception('AI service is temporarily unavailable. Please try again.');
   }
 
-  Future<AiChatResponse> _sendOpenRouter(
-    AiChatRequest request,
-  ) async {
+  Future<AiChatResponse> _sendOpenRouter(AiChatRequest request) async {
     final messages = <Map<String, dynamic>>[
-      {
-        'role': 'system',
-        'content': _systemInstruction,
-      },
+      {'role': 'system', 'content': _systemInstruction},
     ];
 
     for (final message in request.history) {
@@ -118,7 +121,8 @@ Never claim that you booked, cancelled, changed or paid for anything.
 
     messages.add({
       'role': 'user',
-      'content': '''
+      'content':
+          '''
 Current Krishi Queue app context:
 
 ${request.appContext}
@@ -143,9 +147,7 @@ ${request.message}
     );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(
-        _extractErrorMessage(response.body),
-      );
+      throw Exception(_extractErrorMessage(response.body));
     }
 
     final body = jsonDecode(response.body);
@@ -178,23 +180,17 @@ ${request.message}
       throw Exception('OpenRouter returned an empty response.');
     }
 
-    return AiChatResponse(
-      text: content.trim(),
-    );
+    return AiChatResponse(text: content.trim());
   }
 
-  Future<AiChatResponse> _sendGemini(
-    AiChatRequest request,
-  ) async {
+  Future<AiChatResponse> _sendGemini(AiChatRequest request) async {
     final contents = <Map<String, dynamic>>[];
 
     for (final message in request.history) {
       contents.add({
         'role': message.isUser ? 'user' : 'model',
         'parts': [
-          {
-            'text': message.text,
-          },
+          {'text': message.text},
         ],
       });
     }
@@ -203,7 +199,8 @@ ${request.message}
       'role': 'user',
       'parts': [
         {
-          'text': '''
+          'text':
+              '''
 Current Krishi Queue app context:
 
 ${request.appContext}
@@ -217,31 +214,21 @@ ${request.message}
     });
 
     final response = await _client.post(
-      Uri.parse(
-        '${GeminiConfig.endpoint}?key=${GeminiConfig.apiKey}',
-      ),
-      headers: const {
-        'Content-Type': 'application/json',
-      },
+      Uri.parse('${GeminiConfig.endpoint}?key=${GeminiConfig.apiKey}'),
+      headers: const {'Content-Type': 'application/json'},
       body: jsonEncode({
         'system_instruction': {
           'parts': [
-            {
-              'text': _systemInstruction,
-            },
+            {'text': _systemInstruction},
           ],
         },
         'contents': contents,
-        'generationConfig': {
-          'maxOutputTokens': 350,
-        },
+        'generationConfig': {'maxOutputTokens': 350},
       }),
     );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(
-        _extractErrorMessage(response.body),
-      );
+      throw Exception(_extractErrorMessage(response.body));
     }
 
     final body = jsonDecode(response.body);
@@ -285,9 +272,7 @@ ${request.message}
       throw Exception('Gemini returned an empty response.');
     }
 
-    return AiChatResponse(
-      text: text,
-    );
+    return AiChatResponse(text: text);
   }
 
   String _extractErrorMessage(String responseBody) {

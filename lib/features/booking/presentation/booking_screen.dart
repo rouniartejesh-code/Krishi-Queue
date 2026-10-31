@@ -28,11 +28,16 @@ class _BookingScreenState extends State<BookingScreen> {
   String? _selectedCentre;
   String? _selectedCrop;
   int _quantity = 25;
-  DateTime _selectedDate = DateTime(2026, 9, 12);
+  DateTime _selectedDate = _today;
   String? _selectedSlot;
 
   bool _showRecommendation = true;
   bool _booking = false;
+
+  static DateTime get _today {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
 
   final List<_CentreOption> _centres = const [
     _CentreOption(
@@ -70,28 +75,49 @@ class _BookingScreenState extends State<BookingScreen> {
   ];
 
   final List<_SlotOption> _slots = const [
-    _SlotOption(
-      time: '08:00 AM – 09:30 AM',
-      remaining: 7,
-      load: 'Low',
-    ),
+    _SlotOption(time: '08:00 AM – 09:30 AM', remaining: 7, load: 'Low'),
     _SlotOption(
       time: '10:30 AM – 12:00 PM',
       remaining: 14,
       load: 'Low',
       recommended: true,
     ),
-    _SlotOption(
-      time: '12:30 PM – 02:00 PM',
-      remaining: 9,
-      load: 'Medium',
-    ),
-    _SlotOption(
-      time: '03:00 PM – 04:30 PM',
-      remaining: 3,
-      load: 'High',
-    ),
+    _SlotOption(time: '12:30 PM – 02:00 PM', remaining: 9, load: 'Medium'),
+    _SlotOption(time: '03:00 PM – 04:30 PM', remaining: 3, load: 'High'),
   ];
+
+  List<_SlotOption> get _availableSlots {
+    final today = _today;
+    final isToday =
+        _selectedDate.year == today.year &&
+        _selectedDate.month == today.month &&
+        _selectedDate.day == today.day;
+
+    if (!isToday) return _slots;
+
+    final now = DateTime.now();
+    return _slots.where((slot) {
+      final startLabel = slot.time.split(' – ').first;
+      final match = RegExp(r'^(\d{1,2}):(\d{2})\s+(AM|PM)$')
+          .firstMatch(startLabel);
+      if (match == null) return false;
+
+      var hour = int.parse(match.group(1)!);
+      final minute = int.parse(match.group(2)!);
+      final period = match.group(3)!;
+      if (period == 'AM' && hour == 12) hour = 0;
+      if (period == 'PM' && hour != 12) hour += 12;
+
+      final startsAt = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        hour,
+        minute,
+      );
+      return startsAt.isAfter(now);
+    }).toList();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -99,9 +125,7 @@ class _BookingScreenState extends State<BookingScreen> {
       appBar: AppBar(
         title: const Text(
           'Book Procurement Slot',
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w800),
         ),
       ),
       body: SafeArea(
@@ -121,14 +145,7 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   Widget _buildProgress() {
-    const labels = [
-      'Centre',
-      'Crop',
-      'Quantity',
-      'Date',
-      'Slot',
-      'Confirm',
-    ];
+    const labels = ['Centre', 'Crop', 'Quantity', 'Date', 'Slot', 'Confirm'];
 
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
@@ -136,56 +153,48 @@ class _BookingScreenState extends State<BookingScreen> {
       child: Column(
         children: [
           Row(
-            children: List.generate(
-              labels.length,
-              (index) {
-                final active = index <= _step;
+            children: List.generate(labels.length, (index) {
+              final active = index <= _step;
 
-                return Expanded(
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: active
-                                ? AppTheme.primaryGreen
-                                : Colors.grey.shade200,
-                            borderRadius:
-                                BorderRadius.circular(10),
-                          ),
+              return Expanded(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: active
+                              ? AppTheme.primaryGreen
+                              : Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                      if (index != labels.length - 1)
-                        const SizedBox(width: 4),
-                    ],
-                  ),
-                );
-              },
-            ),
+                    ),
+                    if (index != labels.length - 1) const SizedBox(width: 4),
+                  ],
+                ),
+              );
+            }),
           ),
           const SizedBox(height: 9),
           Row(
-            children: List.generate(
-              labels.length,
-              (index) {
-                return Expanded(
-                  child: Text(
-                    labels[index],
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: index == _step
-                          ? FontWeight.w800
-                          : FontWeight.w500,
-                      color: index == _step
-                          ? AppTheme.primaryGreen
-                          : AppTheme.textSecondary,
-                    ),
+            children: List.generate(labels.length, (index) {
+              return Expanded(
+                child: Text(
+                  labels[index],
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: index == _step
+                        ? FontWeight.w800
+                        : FontWeight.w500,
+                    color: index == _step
+                        ? AppTheme.primaryGreen
+                        : AppTheme.textSecondary,
                   ),
-                );
-              },
-            ),
+                ),
+              );
+            }),
           ),
         ],
       ),
@@ -215,8 +224,7 @@ class _BookingScreenState extends State<BookingScreen> {
     return _StepContainer(
       key: const ValueKey('centre'),
       title: 'Select Procurement Centre',
-      subtitle:
-          'Choose the centre where you want to deliver your crop.',
+      subtitle: 'Choose the centre where you want to deliver your crop.',
       child: Column(
         children: [
           for (final centre in _centres)
@@ -247,8 +255,7 @@ class _BookingScreenState extends State<BookingScreen> {
     return _StepContainer(
       key: const ValueKey('crop'),
       title: 'Select Your Crop',
-      subtitle:
-          'Choose the crop you are bringing for procurement.',
+      subtitle: 'Choose the crop you are bringing for procurement.',
       child: Column(
         children: [
           for (final crop in _crops)
@@ -279,8 +286,7 @@ class _BookingScreenState extends State<BookingScreen> {
     return _StepContainer(
       key: const ValueKey('quantity'),
       title: 'Enter Quantity',
-      subtitle:
-          'Tell us approximately how much crop you will bring.',
+      subtitle: 'Tell us approximately how much crop you will bring.',
       child: Column(
         children: [
           Card(
@@ -346,15 +352,10 @@ class _BookingScreenState extends State<BookingScreen> {
           const SizedBox(height: 14),
           const _InfoBanner(
             icon: Icons.info_outline_rounded,
-            text:
-                'Quantity helps estimate processing time and improve slot recommendations.',
+            text: 'Quantity helps estimate processing time and improve slot recommendations.',
           ),
           const SizedBox(height: 20),
-          _NavigationButtons(
-            canContinue: true,
-            onBack: _back,
-            onNext: _next,
-          ),
+          _NavigationButtons(canContinue: true, onBack: _back, onNext: _next),
         ],
       ),
     );
@@ -364,18 +365,18 @@ class _BookingScreenState extends State<BookingScreen> {
     return _StepContainer(
       key: const ValueKey('date'),
       title: 'Choose Delivery Date',
-      subtitle:
-          'Select the date when you plan to visit the centre.',
+      subtitle: 'Select the date when you plan to visit the centre.',
       child: Column(
         children: [
           Card(
             child: CalendarDatePicker(
               initialDate: _selectedDate,
-              firstDate: DateTime(2026, 9, 1),
-              lastDate: DateTime(2026, 12, 31),
+              firstDate: _today,
+              lastDate: DateTime(_today.year + 1, _today.month, _today.day),
               onDateChanged: (date) {
                 setState(() {
                   _selectedDate = date;
+                  _selectedSlot = null;
                 });
               },
             ),
@@ -386,11 +387,7 @@ class _BookingScreenState extends State<BookingScreen> {
             text: 'Selected: ${_formatDate(_selectedDate)}',
           ),
           const SizedBox(height: 20),
-          _NavigationButtons(
-            canContinue: true,
-            onBack: _back,
-            onNext: _next,
-          ),
+          _NavigationButtons(canContinue: true, onBack: _back, onNext: _next),
         ],
       ),
     );
@@ -400,8 +397,7 @@ class _BookingScreenState extends State<BookingScreen> {
     return _StepContainer(
       key: const ValueKey('slot'),
       title: 'Choose a Time Slot',
-      subtitle:
-          'Pick a slot that works best for your delivery.',
+      subtitle: 'Pick a slot that works best for your delivery.',
       child: Column(
         children: [
           if (_showRecommendation)
@@ -415,21 +411,32 @@ class _BookingScreenState extends State<BookingScreen> {
                 },
               ),
             ),
-          for (final slot in _slots)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _SlotCard(
-                option: slot,
-                selected: _selectedSlot == slot.time,
-                onTap: () {
-                  setState(() {
-                    _selectedSlot = slot.time;
-                  });
-                },
+          if (_availableSlots.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 18),
+              child: Text(
+                'No delivery slots remain today. Choose another date.',
+                textAlign: TextAlign.center,
               ),
-            ),
+            )
+          else
+            for (final slot in _availableSlots)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _SlotCard(
+                  option: slot,
+                  selected: _selectedSlot == slot.time,
+                  onTap: () {
+                    setState(() {
+                      _selectedSlot = slot.time;
+                    });
+                  },
+                ),
+              ),
           _NavigationButtons(
-            canContinue: _selectedSlot != null,
+            canContinue: _availableSlots.any(
+              (slot) => slot.time == _selectedSlot,
+            ),
             onBack: _back,
             onNext: _next,
           ),
@@ -442,8 +449,7 @@ class _BookingScreenState extends State<BookingScreen> {
     return _StepContainer(
       key: const ValueKey('confirm'),
       title: 'Confirm Your Booking',
-      subtitle:
-          'Review your details before reserving the procurement slot.',
+      subtitle: 'Review your details before reserving the procurement slot.',
       child: Column(
         children: [
           Card(
@@ -451,22 +457,10 @@ class _BookingScreenState extends State<BookingScreen> {
               padding: const EdgeInsets.all(18),
               child: Column(
                 children: [
-                  _SummaryRow(
-                    label: 'Centre',
-                    value: _selectedCentre ?? '-',
-                  ),
-                  _SummaryRow(
-                    label: 'Crop',
-                    value: _selectedCrop ?? '-',
-                  ),
-                  _SummaryRow(
-                    label: 'Quantity',
-                    value: '$_quantity QTL',
-                  ),
-                  _SummaryRow(
-                    label: 'Date',
-                    value: _formatDate(_selectedDate),
-                  ),
+                  _SummaryRow(label: 'Centre', value: _selectedCentre ?? '-'),
+                  _SummaryRow(label: 'Crop', value: _selectedCrop ?? '-'),
+                  _SummaryRow(label: 'Quantity', value: '$_quantity QTL'),
+                  _SummaryRow(label: 'Date', value: _formatDate(_selectedDate)),
                   _SummaryRow(
                     label: 'Time Slot',
                     value: _selectedSlot ?? '-',
@@ -479,14 +473,12 @@ class _BookingScreenState extends State<BookingScreen> {
           const SizedBox(height: 14),
           const _InfoBanner(
             icon: Icons.verified_outlined,
-            text:
-                'After confirmation, your digital procurement token will be generated and saved to your booking.',
+            text: 'After confirmation, your digital procurement token will be generated and saved to your booking.',
           ),
           const SizedBox(height: 20),
           _NavigationButtons(
             canContinue: !_booking,
-            nextLabel:
-                _booking ? 'Confirming...' : 'Confirm Booking',
+            nextLabel: _booking ? 'Confirming...' : 'Confirm Booking',
             onBack: _booking ? null : _back,
             onNext: _confirmBooking,
           ),
@@ -518,9 +510,7 @@ class _BookingScreenState extends State<BookingScreen> {
     final cropName = _selectedCrop;
     final slot = _selectedSlot;
 
-    if (centreName == null ||
-        cropName == null ||
-        slot == null) {
+    if (centreName == null || cropName == null || slot == null) {
       return;
     }
 
@@ -529,23 +519,16 @@ class _BookingScreenState extends State<BookingScreen> {
     });
 
     try {
-      await Future.delayed(
-        const Duration(milliseconds: 900),
-      );
+      await Future.delayed(const Duration(milliseconds: 900));
 
-      final centre = _centres.firstWhere(
-        (item) => item.name == centreName,
-      );
+      final centre = _centres.firstWhere((item) => item.name == centreName);
 
-      final bookingId = DateTime.now()
-          .millisecondsSinceEpoch
-          .toString();
+      final bookingId = DateTime.now().millisecondsSinceEpoch.toString();
 
       final bookingNumber =
           'BK-${DateTime.now().year}-${bookingId.substring(7)}';
 
-      final token =
-          'KQ-${DateTime.now().year}-${bookingId.substring(7)}';
+      final token = 'KQ-${DateTime.now().year}-${bookingId.substring(7)}';
 
       await BookingCreator.create(
         repository: widget.repository,
@@ -561,8 +544,7 @@ class _BookingScreenState extends State<BookingScreen> {
         crop: cropName,
         slot: slot,
         queuePosition: 6,
-        averageProcessingTimeMinutes:
-            _processingTimeForQuantity(_quantity),
+        averageProcessingTimeMinutes: _processingTimeForQuantity(_quantity),
         centreDelayBufferMinutes: 6,
         marketReferenceModalPricePerQtl: null,
       );
@@ -574,16 +556,10 @@ class _BookingScreenState extends State<BookingScreen> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Booking confirmed successfully.',
-          ),
-        ),
+        const SnackBar(content: Text('Booking confirmed successfully.')),
       );
 
-      await Future.delayed(
-        const Duration(milliseconds: 250),
-      );
+      await Future.delayed(const Duration(milliseconds: 250));
 
       if (!mounted) return;
 
@@ -596,11 +572,7 @@ class _BookingScreenState extends State<BookingScreen> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Could not confirm booking: $error',
-          ),
-        ),
+        SnackBar(content: Text('Could not confirm booking: $error')),
       );
     }
   }
@@ -617,12 +589,7 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   String _toSlotId(String value) {
-    return 'SLOT-${value
-        .replaceAll(' ', '')
-        .replaceAll('–', '-')
-        .replaceAll(':', '')
-        .replaceAll('AM', 'A')
-        .replaceAll('PM', 'P')}';
+    return 'SLOT-${value.replaceAll(' ', '').replaceAll('–', '-').replaceAll(':', '').replaceAll('AM', 'A').replaceAll('PM', 'P')}';
   }
 
   String _formatDate(DateTime date) {
@@ -660,22 +627,14 @@ class _StepContainer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(
-        20,
-        8,
-        20,
-        28,
-      ),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: 8),
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 23,
-              fontWeight: FontWeight.w800,
-            ),
+            style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 6),
           Text(
@@ -766,8 +725,7 @@ class _CentreCard extends StatelessWidget {
               const SizedBox(width: 13),
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       option.name,
@@ -795,9 +753,7 @@ class _CentreCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 10),
-                        _LoadBadge(
-                          load: option.load,
-                        ),
+                        _LoadBadge(load: option.load),
                       ],
                     ),
                   ],
@@ -808,9 +764,7 @@ class _CentreCard extends StatelessWidget {
                 selected
                     ? Icons.radio_button_checked_rounded
                     : Icons.radio_button_off_rounded,
-                color: selected
-                    ? AppTheme.primaryGreen
-                    : Colors.grey.shade400,
+                color: selected ? AppTheme.primaryGreen : Colors.grey.shade400,
               ),
             ],
           ),
@@ -840,10 +794,7 @@ class _SelectionTile extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
         child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 15,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
           child: Row(
             children: [
               Icon(
@@ -866,9 +817,7 @@ class _SelectionTile extends StatelessWidget {
                 selected
                     ? Icons.check_circle_rounded
                     : Icons.radio_button_off_rounded,
-                color: selected
-                    ? AppTheme.primaryGreen
-                    : Colors.grey.shade400,
+                color: selected ? AppTheme.primaryGreen : Colors.grey.shade400,
               ),
             ],
           ),
@@ -918,8 +867,7 @@ class _SlotCard extends StatelessWidget {
               const SizedBox(width: 13),
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
@@ -935,24 +883,20 @@ class _SlotCard extends StatelessWidget {
                         if (option.recommended) ...[
                           const SizedBox(width: 7),
                           Container(
-                            padding:
-                                const EdgeInsets.symmetric(
+                            padding: const EdgeInsets.symmetric(
                               horizontal: 7,
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
                               color: AppTheme.lightOrange,
-                              borderRadius:
-                                  BorderRadius.circular(7),
+                              borderRadius: BorderRadius.circular(7),
                             ),
                             child: const Text(
                               'RECOMMENDED',
                               style: TextStyle(
-                                color:
-                                    AppTheme.accentOrange,
+                                color: AppTheme.accentOrange,
                                 fontSize: 8,
-                                fontWeight:
-                                    FontWeight.w800,
+                                fontWeight: FontWeight.w800,
                               ),
                             ),
                           ),
@@ -970,9 +914,7 @@ class _SlotCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 10),
-                        _LoadBadge(
-                          load: option.load,
-                        ),
+                        _LoadBadge(load: option.load),
                       ],
                     ),
                   ],
@@ -982,9 +924,7 @@ class _SlotCard extends StatelessWidget {
                 selected
                     ? Icons.radio_button_checked_rounded
                     : Icons.radio_button_off_rounded,
-                color: selected
-                    ? AppTheme.primaryGreen
-                    : Colors.grey.shade400,
+                color: selected ? AppTheme.primaryGreen : Colors.grey.shade400,
               ),
             ],
           ),
@@ -997,9 +937,7 @@ class _SlotCard extends StatelessWidget {
 class _RecommendationCard extends StatelessWidget {
   final VoidCallback onClose;
 
-  const _RecommendationCard({
-    required this.onClose,
-  });
+  const _RecommendationCard({required this.onClose});
 
   @override
   Widget build(BuildContext context) {
@@ -1009,38 +947,26 @@ class _RecommendationCard extends StatelessWidget {
         color: AppTheme.lightOrange,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: AppTheme.accentOrange.withValues(
-            alpha: 0.15,
-          ),
+          color: AppTheme.accentOrange.withValues(alpha: 0.15),
         ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.auto_awesome_outlined,
-            color: AppTheme.accentOrange,
-          ),
+          const Icon(Icons.auto_awesome_outlined, color: AppTheme.accentOrange),
           const SizedBox(width: 11),
           const Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Smart Slot Recommendation',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
                 ),
                 SizedBox(height: 5),
                 Text(
                   '10:30 AM – 12:00 PM is recommended because the current centre load is low and more capacity is available.',
-                  style: TextStyle(
-                    fontSize: 11,
-                    height: 1.4,
-                  ),
+                  style: TextStyle(fontSize: 11, height: 1.4),
                 ),
               ],
             ),
@@ -1048,10 +974,7 @@ class _RecommendationCard extends StatelessWidget {
           IconButton(
             onPressed: onClose,
             visualDensity: VisualDensity.compact,
-            icon: const Icon(
-              Icons.close_rounded,
-              size: 18,
-            ),
+            icon: const Icon(Icons.close_rounded, size: 18),
           ),
         ],
       ),
@@ -1062,23 +985,18 @@ class _RecommendationCard extends StatelessWidget {
 class _LoadBadge extends StatelessWidget {
   final String load;
 
-  const _LoadBadge({
-    required this.load,
-  });
+  const _LoadBadge({required this.load});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 7,
-        vertical: 4,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
       decoration: BoxDecoration(
         color: load == 'Low'
             ? const Color(0xFFE8F5E9)
             : load == 'Medium'
-                ? const Color(0xFFFFF8E1)
-                : const Color(0xFFFFEBEE),
+            ? const Color(0xFFFFF8E1)
+            : const Color(0xFFFFEBEE),
         borderRadius: BorderRadius.circular(7),
       ),
       child: Text(
@@ -1087,8 +1005,8 @@ class _LoadBadge extends StatelessWidget {
           color: load == 'Low'
               ? AppTheme.primaryGreen
               : load == 'Medium'
-                  ? Colors.orange.shade800
-                  : Colors.red.shade700,
+              ? Colors.orange.shade800
+              : Colors.red.shade700,
           fontSize: 9,
           fontWeight: FontWeight.w800,
         ),
@@ -1101,10 +1019,7 @@ class _InfoBanner extends StatelessWidget {
   final IconData icon;
   final String text;
 
-  const _InfoBanner({
-    required this.icon,
-    required this.text,
-  });
+  const _InfoBanner({required this.icon, required this.text});
 
   @override
   Widget build(BuildContext context) {
@@ -1113,18 +1028,12 @@ class _InfoBanner extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.grey.shade200,
-        ),
+        border: Border.all(color: Colors.grey.shade200),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            icon,
-            size: 19,
-            color: AppTheme.primaryGreen,
-          ),
+          Icon(icon, size: 19, color: AppTheme.primaryGreen),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -1146,17 +1055,12 @@ class _QuantityButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback? onTap;
 
-  const _QuantityButton({
-    required this.icon,
-    required this.onTap,
-  });
+  const _QuantityButton({required this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: onTap == null
-          ? Colors.grey.shade100
-          : AppTheme.primaryGreen,
+      color: onTap == null ? Colors.grey.shade100 : AppTheme.primaryGreen,
       borderRadius: BorderRadius.circular(15),
       child: InkWell(
         onTap: onTap,
@@ -1166,9 +1070,7 @@ class _QuantityButton extends StatelessWidget {
           height: 50,
           child: Icon(
             icon,
-            color: onTap == null
-                ? Colors.grey.shade400
-                : Colors.white,
+            color: onTap == null ? Colors.grey.shade400 : Colors.white,
           ),
         ),
       ),
@@ -1200,18 +1102,14 @@ class _NavigationButtons extends StatelessWidget {
             child: OutlinedButton(
               onPressed: onBack,
               style: OutlinedButton.styleFrom(
-                minimumSize:
-                    const Size.fromHeight(52),
+                minimumSize: const Size.fromHeight(52),
                 shape: RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(16),
                 ),
               ),
               child: const Text(
                 'Back',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                ),
+                style: TextStyle(fontWeight: FontWeight.w700),
               ),
             ),
           ),
@@ -1220,14 +1118,11 @@ class _NavigationButtons extends StatelessWidget {
           child: FilledButton(
             onPressed: canContinue ? onNext : null,
             style: FilledButton.styleFrom(
-              minimumSize:
-                  const Size.fromHeight(52),
+              minimumSize: const Size.fromHeight(52),
             ),
             child: Text(
               nextLabel,
-              style: const TextStyle(
-                fontWeight: FontWeight.w800,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.w800),
             ),
           ),
         ),
@@ -1250,12 +1145,9 @@ class _SummaryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(
-        bottom: isLast ? 0 : 17,
-      ),
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 17),
       child: Row(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
             child: Text(
@@ -1271,10 +1163,7 @@ class _SummaryRow extends StatelessWidget {
             child: Text(
               value,
               textAlign: TextAlign.right,
-              style: const TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 12,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
             ),
           ),
         ],

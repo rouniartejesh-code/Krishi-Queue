@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import 'firebase_options.dart';
 
@@ -33,9 +34,15 @@ import 'features/queue/domain/queue_engine.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (error) {
+    // Keep the app shell available when Firebase is not configured for the
+    // current platform. The login screen reports that phone sign-in is off.
+    debugPrint('Firebase initialization failed: $error');
+  }
 
   runApp(const KrishiQueueApp());
 }
@@ -85,7 +92,14 @@ class _AuthGateState extends State<AuthGate> {
     });
   }
 
-  void _logout() {
+  Future<void> _logout() async {
+    try {
+      await FirebaseAuth.instance.signOut();
+    } catch (_) {
+      // Clear the local session even if Firebase sign-out is unavailable.
+    }
+
+    if (!mounted) return;
     setState(() {
       _role = null;
     });
@@ -106,9 +120,7 @@ class _AuthGateState extends State<AuthGate> {
   void _openToken() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => TokenScreen(
-          repository: _bookingRepository,
-        ),
+        builder: (_) => TokenScreen(repository: _bookingRepository),
       ),
     );
   }
@@ -116,9 +128,7 @@ class _AuthGateState extends State<AuthGate> {
   void _openTrackQueue() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => TrackQueueScreen(
-          repository: _bookingRepository,
-        ),
+        builder: (_) => TrackQueueScreen(repository: _bookingRepository),
       ),
     );
   }
@@ -126,9 +136,7 @@ class _AuthGateState extends State<AuthGate> {
   void _openMarketPrice() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => MarketPriceScreen(
-          repository: _marketPriceRepository,
-        ),
+        builder: (_) => MarketPriceScreen(repository: _marketPriceRepository),
       ),
     );
   }
@@ -136,9 +144,7 @@ class _AuthGateState extends State<AuthGate> {
   void _openPayment() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => PaymentScreen(
-          repository: _bookingRepository,
-        ),
+        builder: (_) => PaymentScreen(repository: _bookingRepository),
       ),
     );
   }
@@ -148,9 +154,7 @@ class _AuthGateState extends State<AuthGate> {
     final role = _role;
 
     if (role == null) {
-      return LoginScreen(
-        onLoginSuccess: _handleLoginSuccess,
-      );
+      return LoginScreen(onLoginSuccess: _handleLoginSuccess);
     }
 
     switch (role) {
@@ -162,9 +166,7 @@ class _AuthGateState extends State<AuthGate> {
           onTrackQueueTap: _openTrackQueue,
           onMarketPriceTap: _openMarketPrice,
           onPaymentTap: _openPayment,
-          newsScreen: NewsScreen(
-            api: _farmerNewsApi,
-          ),
+          newsScreen: NewsScreen(api: _farmerNewsApi),
           chatScreen: AiChatScreen(
             bookingRepository: _bookingRepository,
             marketPriceRepository: _marketPriceRepository,
@@ -197,10 +199,7 @@ class _AuthGateState extends State<AuthGate> {
 class TokenScreen extends StatefulWidget {
   final BookingRepository repository;
 
-  const TokenScreen({
-    super.key,
-    required this.repository,
-  });
+  const TokenScreen({super.key, required this.repository});
 
   @override
   State<TokenScreen> createState() => _TokenScreenState();
@@ -239,17 +238,11 @@ class _TokenScreenState extends State<TokenScreen> {
       return;
     }
 
-    final updatedQueue = QueueEngine.advanceQueue(
-      currentBooking.queueState,
-    );
+    final updatedQueue = QueueEngine.advanceQueue(currentBooking.queueState);
 
-    final updatedBooking = currentBooking.copyWith(
-      queueState: updatedQueue,
-    );
+    final updatedBooking = currentBooking.copyWith(queueState: updatedQueue);
 
-    final savedBooking = await _repository.updateBooking(
-      updatedBooking,
-    );
+    final savedBooking = await _repository.updateBooking(updatedBooking);
 
     if (!mounted) {
       return;
@@ -263,9 +256,7 @@ class _TokenScreenState extends State<TokenScreen> {
   void _openProcurement() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => ProcurementScreen(
-          repository: _repository,
-        ),
+        builder: (_) => ProcurementScreen(repository: _repository),
       ),
     );
   }
@@ -275,11 +266,7 @@ class _TokenScreenState extends State<TokenScreen> {
     final currentBooking = booking;
 
     if (currentBooking == null) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     final queue = currentBooking.queueState;
@@ -288,20 +275,13 @@ class _TokenScreenState extends State<TokenScreen> {
       appBar: AppBar(
         title: const Text(
           'My Token',
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w800),
         ),
       ),
       body: RefreshIndicator(
         onRefresh: _loadBooking,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(
-            20,
-            8,
-            20,
-            30,
-          ),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 30),
           children: [
             Container(
               padding: const EdgeInsets.all(20),
@@ -445,9 +425,7 @@ class _TokenScreenState extends State<TokenScreen> {
                           ],
                         ),
                       ),
-                      const Icon(
-                        Icons.chevron_right_rounded,
-                      ),
+                      const Icon(Icons.chevron_right_rounded),
                     ],
                   ),
                 ),
@@ -456,12 +434,8 @@ class _TokenScreenState extends State<TokenScreen> {
             const SizedBox(height: 14),
             OutlinedButton.icon(
               onPressed: _advanceQueue,
-              icon: const Icon(
-                Icons.fast_forward_rounded,
-              ),
-              label: const Text(
-                'Simulate Queue Movement',
-              ),
+              icon: const Icon(Icons.fast_forward_rounded),
+              label: const Text('Simulate Queue Movement'),
             ),
           ],
         ),
@@ -489,11 +463,7 @@ class _StatCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              icon,
-              color: AppTheme.primaryGreen,
-              size: 21,
-            ),
+            Icon(icon, color: AppTheme.primaryGreen, size: 21),
             const SizedBox(height: 10),
             Text(
               label,
@@ -505,10 +475,7 @@ class _StatCard extends StatelessWidget {
             const SizedBox(height: 3),
             Text(
               value,
-              style: const TextStyle(
-                fontSize: 21,
-                fontWeight: FontWeight.w900,
-              ),
+              style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900),
             ),
           ],
         ),
@@ -533,16 +500,10 @@ class _InfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(
-        bottom: isLast ? 0 : 13,
-      ),
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 13),
       child: Row(
         children: [
-          Icon(
-            icon,
-            size: 18,
-            color: AppTheme.textSecondary,
-          ),
+          Icon(icon, size: 18, color: AppTheme.textSecondary),
           const SizedBox(width: 11),
           SizedBox(
             width: 75,
@@ -558,10 +519,7 @@ class _InfoRow extends StatelessWidget {
             child: Text(
               value,
               textAlign: TextAlign.end,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-              ),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
             ),
           ),
         ],

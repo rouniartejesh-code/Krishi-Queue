@@ -8,18 +8,19 @@ import 'newsdata_config.dart';
 class FarmerNewsApi {
   final http.Client _client;
 
-  FarmerNewsApi({
-    http.Client? client,
-  }) : _client = client ?? http.Client();
+  FarmerNewsApi({http.Client? client}) : _client = client ?? http.Client();
 
   Future<List<NewsArticle>> fetchLatest() async {
-    final uri = Uri.parse(
-      NewsDataConfig.endpoint,
-    ).replace(
+    if (NewsDataConfig.apiKey.trim().isEmpty) {
+      throw Exception(
+        'Farmer news is not configured. Set NEWSDATA_API_KEY at build time.',
+      );
+    }
+
+    final uri = Uri.parse(NewsDataConfig.endpoint).replace(
       queryParameters: {
         'apikey': NewsDataConfig.apiKey.trim(),
-        'q':
-            'agriculture OR farmer OR farmers OR kisan OR farming OR crop OR crops OR MSP OR procurement OR mandi',
+        'q': 'agriculture OR farmer OR farmers OR kisan OR farming OR crop OR crops OR MSP OR procurement OR mandi',
         'country': 'in',
         'language': 'en',
         'size': '10',
@@ -35,9 +36,7 @@ class FarmerNewsApi {
               'User-Agent': 'KrishiQueue/1.0',
             },
           )
-          .timeout(
-            const Duration(seconds: 15),
-          );
+          .timeout(const Duration(seconds: 15));
 
       final body = response.body;
 
@@ -47,37 +46,22 @@ class FarmerNewsApi {
         final decoded = jsonDecode(body);
 
         if (decoded is! Map<String, dynamic>) {
-          throw Exception(
-            'NewsData returned invalid JSON.',
-          );
+          throw Exception('NewsData returned invalid JSON.');
         }
 
         data = decoded;
       } catch (error) {
-        throw Exception(
-          'NewsData returned invalid JSON: $error',
-        );
+        throw Exception('NewsData returned invalid JSON: $error');
       }
 
-      if (response.statusCode < 200 ||
-          response.statusCode >= 300) {
-        throw Exception(
-          _extractApiError(
-            data,
-            response.statusCode,
-          ),
-        );
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(_extractApiError(data, response.statusCode));
       }
 
       final status = data['status'];
 
       if (status != 'success') {
-        throw Exception(
-          _extractApiError(
-            data,
-            response.statusCode,
-          ),
-        );
+        throw Exception(_extractApiError(data, response.statusCode));
       }
 
       final rawResults = data['results'];
@@ -93,57 +77,32 @@ class FarmerNewsApi {
           continue;
         }
 
-        final title = _string(
-          rawArticle['title'],
-        );
+        final title = _string(rawArticle['title']);
 
-        final link = _string(
-          rawArticle['link'],
-        );
+        final link = _string(rawArticle['link']);
 
         if (title.isEmpty || link.isEmpty) {
           continue;
         }
 
-        final description = _string(
-          rawArticle['description'],
-        );
+        final description = _string(rawArticle['description']);
 
-        final content = _string(
-          rawArticle['content'],
-        );
+        final content = _string(rawArticle['content']);
 
-        final source = _string(
-          rawArticle['source_name'],
-        );
+        final source = _string(rawArticle['source_name']);
 
-        final imageUrl = _string(
-          rawArticle['image_url'],
-        );
+        final imageUrl = _string(rawArticle['image_url']);
 
-        final pubDate = _string(
-          rawArticle['pubDate'],
-        );
+        final pubDate = _string(rawArticle['pubDate']);
 
         final article = NewsArticle(
           title: _clean(title),
-          summary: _createSummary(
-            description,
-            content,
-            title,
-          ),
-          source: source.isEmpty
-              ? 'NewsData.io'
-              : _clean(source),
-          category: _category(
-            title,
-            description,
-          ),
+          summary: _createSummary(description, content, title),
+          source: source.isEmpty ? 'NewsData.io' : _clean(source),
+          category: _category(title, description),
           publishedAt: _parseDate(pubDate),
           url: link,
-          imageUrl: imageUrl.isEmpty
-              ? null
-              : imageUrl,
+          imageUrl: imageUrl.isEmpty ? null : imageUrl,
         );
 
         if (_isFarmerNews(article)) {
@@ -154,9 +113,7 @@ class FarmerNewsApi {
       final unique = <String, NewsArticle>{};
 
       for (final article in articles) {
-        final key = _normalise(
-          article.title,
-        );
+        final key = _normalise(article.title);
 
         if (key.isEmpty) {
           continue;
@@ -167,39 +124,23 @@ class FarmerNewsApi {
         if (existing == null) {
           unique[key] = article;
         } else {
-          unique[key] = _prefer(
-            existing,
-            article,
-          );
+          unique[key] = _prefer(existing, article);
         }
       }
 
       final result = unique.values.toList()
-        ..sort(
-          (a, b) => b.publishedAt.compareTo(
-            a.publishedAt,
-          ),
-        );
+        ..sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
 
       return result;
     } catch (error) {
-      throw Exception(
-        error.toString().replaceFirst(
-          'Exception: ',
-          '',
-        ),
-      );
+      throw Exception(error.toString().replaceFirst('Exception: ', ''));
     }
   }
 
-  String _extractApiError(
-    Map<String, dynamic> data,
-    int statusCode,
-  ) {
+  String _extractApiError(Map<String, dynamic> data, int statusCode) {
     final topMessage = data['message'];
 
-    if (topMessage is String &&
-        topMessage.trim().isNotEmpty) {
+    if (topMessage is String && topMessage.trim().isNotEmpty) {
       return 'NewsData error ($statusCode): ${topMessage.trim()}';
     }
 
@@ -208,8 +149,7 @@ class FarmerNewsApi {
     if (results is Map<String, dynamic>) {
       final resultMessage = results['message'];
 
-      if (resultMessage is String &&
-          resultMessage.trim().isNotEmpty) {
+      if (resultMessage is String && resultMessage.trim().isNotEmpty) {
         return 'NewsData error ($statusCode): ${resultMessage.trim()}';
       }
     }
@@ -217,12 +157,8 @@ class FarmerNewsApi {
     return 'NewsData error ($statusCode).';
   }
 
-  bool _isFarmerNews(
-    NewsArticle article,
-  ) {
-    final text =
-        '${article.title} ${article.summary}'
-            .toLowerCase();
+  bool _isFarmerNews(NewsArticle article) {
+    final text = '${article.title} ${article.summary}'.toLowerCase();
 
     const keywords = <String>[
       'farmer',
@@ -270,17 +206,11 @@ class FarmerNewsApi {
       'agriculture ministry',
     ];
 
-    return keywords.any(
-      text.contains,
-    );
+    return keywords.any(text.contains);
   }
 
-  String _category(
-    String title,
-    String description,
-  ) {
-    final text =
-        '$title $description'.toLowerCase();
+  String _category(String title, String description) {
+    final text = '$title $description'.toLowerCase();
 
     if (text.contains('msp') ||
         text.contains('procurement') ||
@@ -301,8 +231,7 @@ class FarmerNewsApi {
       return 'Weather & Crops';
     }
 
-    if (text.contains('livestock') ||
-        text.contains('dairy')) {
+    if (text.contains('livestock') || text.contains('dairy')) {
       return 'Livestock & Dairy';
     }
 
@@ -329,44 +258,29 @@ class FarmerNewsApi {
     return 'Agriculture';
   }
 
-  NewsArticle _prefer(
-    NewsArticle current,
-    NewsArticle next,
-  ) {
-    if (current.imageUrl == null &&
-        next.imageUrl != null) {
+  NewsArticle _prefer(NewsArticle current, NewsArticle next) {
+    if (current.imageUrl == null && next.imageUrl != null) {
       return next;
     }
 
-    if (next.publishedAt.isAfter(
-      current.publishedAt,
-    )) {
+    if (next.publishedAt.isAfter(current.publishedAt)) {
       return next;
     }
 
     return current;
   }
 
-  DateTime _parseDate(
-    String value,
-  ) {
+  DateTime _parseDate(String value) {
     if (value.isEmpty) {
-      return DateTime.now();
+      return DateTime.fromMillisecondsSinceEpoch(0);
     }
 
-    final parsed = DateTime.tryParse(
-      value,
-    );
+    final parsed = DateTime.tryParse(value);
 
-    return parsed?.toLocal() ??
-        DateTime.now();
+    return parsed?.toLocal() ?? DateTime.fromMillisecondsSinceEpoch(0);
   }
 
-  String _createSummary(
-    String description,
-    String content,
-    String title,
-  ) {
+  String _createSummary(String description, String content, String title) {
     var summary = description.trim();
 
     if (summary.isEmpty) {
@@ -375,9 +289,7 @@ class FarmerNewsApi {
 
     summary = _clean(summary);
 
-    if (summary.isEmpty ||
-        summary.toLowerCase() ==
-            title.toLowerCase()) {
+    if (summary.isEmpty || summary.toLowerCase() == title.toLowerCase()) {
       return 'Tap to read the full farmer and agriculture news update.';
     }
 
@@ -388,9 +300,7 @@ class FarmerNewsApi {
     return '${summary.substring(0, 177).trimRight()}...';
   }
 
-  String _string(
-    dynamic value,
-  ) {
+  String _string(dynamic value) {
     if (value is String) {
       return value.trim();
     }
@@ -398,9 +308,7 @@ class FarmerNewsApi {
     return '';
   }
 
-  String _clean(
-    String value,
-  ) {
+  String _clean(String value) {
     var text = value;
 
     const replacements = <String, String>{
@@ -417,34 +325,17 @@ class FarmerNewsApi {
     };
 
     for (final entry in replacements.entries) {
-      text = text.replaceAll(
-        entry.key,
-        entry.value,
-      );
+      text = text.replaceAll(entry.key, entry.value);
     }
 
     return text
-        .replaceAll(
-          RegExp(r'<[^>]*>'),
-          ' ',
-        )
-        .replaceAll(
-          RegExp(r'\s+'),
-          ' ',
-        )
+        .replaceAll(RegExp(r'<[^>]*>'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
   }
 
-  String _normalise(
-    String value,
-  ) {
-    return value
-        .toLowerCase()
-        .replaceAll(
-          RegExp(r'[^a-z0-9]+'),
-          ' ',
-        )
-        .trim();
+  String _normalise(String value) {
+    return value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
   }
 
   void dispose() {

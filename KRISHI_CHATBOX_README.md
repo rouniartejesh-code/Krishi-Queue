@@ -1,20 +1,7 @@
-# Krishi Queue AI ChatBox
+# Krishi Queue AI Chat
 
-Implemented:
+The chat UI supports English, Hindi, and Hinglish. It supplies the assistant with the current local demo booking and requests market data only when the message asks about prices. Replies are intended to stay within Krishi Queue support topics and remain read-only.
 
-- Bottom navigation: Home | Chat | Bookings
-- Swiggy/Zomato-style support chat UI
-- Gemini-powered responses
-- English / Hindi / Hinglish support
-- Krishi Queue-only response scope
-- Quick actions for booking, token, queue/ETA, payment, and market price
-- Typing indicator, loading state, and API error handling
-- Current local booking and market-price data supplied as verified app context
+Configure `OPENROUTER_API_KEY` and/or `GEMINI_API_KEY` with `--dart-define` when building or running the app. OpenRouter is tried first, followed by Gemini. If neither key is configured, the chat reports that configuration is missing instead of making doomed requests.
 
-## Gemini
-
-Uses the stable `gemini-3.8-flash` model through Google's Gemini `generateContent` API.
-
-The supplied API key is included in `lib/features/ai_chat/data/gemini_config.dart` so the prototype can run immediately.
-
-**Production note:** a Flutter app cannot keep a Gemini API key secret from a determined user. Before production deployment, move the Gemini call behind a server/Firebase Cloud Function and rotate the currently exposed key.
+Client-side API keys can be extracted from a distributed app even when passed through `--dart-define`. Use a server or Firebase Cloud Function for production requests, and rotate any API keys that were previously committed to this repository.
