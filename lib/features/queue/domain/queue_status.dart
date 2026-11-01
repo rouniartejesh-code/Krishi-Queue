@@ -1,7 +1,4 @@
-enum QueueStatus {
-  bookingConfirmed,
-  yourTurnNext,
-}
+enum QueueStatus { bookingConfirmed, yourTurnNext }
 
 extension QueueStatusLabel on QueueStatus {
   String get label {

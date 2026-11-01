@@ -519,16 +519,14 @@ class _BookingScreenState extends State<BookingScreen> {
     });
 
     try {
-      await Future.delayed(const Duration(milliseconds: 900));
-
       final centre = _centres.firstWhere((item) => item.name == centreName);
 
       final bookingId = DateTime.now().millisecondsSinceEpoch.toString();
 
       final bookingNumber =
-          'BK-${DateTime.now().year}-${bookingId.substring(7)}';
+          'DEMO-BK-$bookingId';
 
-      final token = 'KQ-${DateTime.now().year}-${bookingId.substring(7)}';
+      final token = 'DEMO-KQ-$bookingId';
 
       await BookingCreator.create(
         repository: widget.repository,
@@ -556,7 +554,7 @@ class _BookingScreenState extends State<BookingScreen> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Booking confirmed successfully.')),
+        const SnackBar(content: Text('Practice booking created. This is not a government token.')),
       );
 
       await Future.delayed(const Duration(milliseconds: 250));

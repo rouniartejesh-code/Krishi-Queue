@@ -6,10 +6,7 @@ import '../../domain/chat_message.dart';
 class ChatMessageBubble extends StatelessWidget {
   final ChatMessage message;
 
-  const ChatMessageBubble({
-    super.key,
-    required this.message,
-  });
+  const ChatMessageBubble({super.key, required this.message});
 
   @override
   Widget build(BuildContext context) {
@@ -26,10 +23,7 @@ class ChatMessageBubble extends StatelessWidget {
           right: isUser ? 0 : 42,
           bottom: 10,
         ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 15,
-          vertical: 11,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
         decoration: BoxDecoration(
           color: isUser ? AppTheme.primaryGreen : Colors.white,
           borderRadius: BorderRadius.only(
@@ -48,11 +42,11 @@ class ChatMessageBubble extends StatelessWidget {
                   ),
                 ],
         ),
-        child: Text(
+        child: SelectableText(
           message.text,
           style: TextStyle(
             color: isUser ? Colors.white : AppTheme.textPrimary,
-            fontSize: 14,
+            fontSize: 16,
             height: 1.4,
           ),
         ),

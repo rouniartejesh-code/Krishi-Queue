@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/practice_banner.dart';
 import '../../booking/domain/booking.dart';
 import '../../booking/domain/booking_repository.dart';
 import '../../procurement/domain/procurement_status.dart';
@@ -53,9 +54,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Unable to load staff queue.'),
-        ),
+        const SnackBar(content: Text('Unable to load staff queue.')),
       );
     }
   }
@@ -64,12 +63,14 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
     Navigator.of(context)
         .push(
           MaterialPageRoute(
-            builder: (_) => StaffWorkflowScreen(
-              repository: widget.repository,
+            builder: (_) => PracticePage(
+              child: StaffWorkflowScreen(repository: widget.repository),
             ),
           ),
         )
-        .then((_) => _loadBooking());
+        .then((_) {
+          if (mounted) _loadBooking();
+        });
   }
 
   @override
@@ -117,10 +118,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
               const SizedBox(height: 22),
               const Text(
                 "Today's Queue",
-                style: TextStyle(
-                  fontSize: 19,
-                  fontWeight: FontWeight.w800,
-                ),
+                style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 12),
               _buildBookingCard(booking),
@@ -204,10 +202,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
               color: Colors.white.withValues(alpha: .14),
               borderRadius: BorderRadius.circular(15),
             ),
-            child: const Icon(
-              Icons.storefront_rounded,
-              color: Colors.white,
-            ),
+            child: const Icon(Icons.storefront_rounded, color: Colors.white),
           ),
           const SizedBox(width: 13),
           Expanded(
@@ -235,10 +230,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                 const SizedBox(height: 3),
                 Text(
                   '${booking.queueState.crop} • ${booking.quantityQtl} QTL',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 11,
-                  ),
+                  style: const TextStyle(color: Colors.white70, fontSize: 11),
                 ),
               ],
             ),
@@ -253,7 +245,8 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
     final waiting = booking.queueState.queuePosition > 1
         ? booking.queueState.queuePosition - 1
         : 0;
-    final pendingWeighing = status.index < ProcurementStatus.weighingCompleted.index;
+    final pendingWeighing =
+        status.index < ProcurementStatus.weighingCompleted.index;
     final pendingQuality = status.index < ProcurementStatus.qualityPassed.index;
     final pendingBilling = status.index < ProcurementStatus.billGenerated.index;
 
@@ -380,7 +373,11 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
       setState(() => _booking = saved);
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Queue advanced: ${saved.token} is now #${saved.queuePosition}.')),
+        SnackBar(
+          content: Text(
+            'Queue advanced: ${saved.token} is now #${saved.queuePosition}.',
+          ),
+        ),
       );
     } catch (_) {
       if (!mounted) return;
@@ -422,13 +419,9 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
           FilledButton.icon(
             onPressed: canProcess ? _processNextVehicle : null,
             icon: Icon(
-              canProcess
-                  ? Icons.fast_forward_rounded
-                  : Icons.lock_open_rounded,
+              canProcess ? Icons.fast_forward_rounded : Icons.lock_open_rounded,
             ),
-            label: Text(
-              canProcess ? 'Process Next Vehicle' : 'Ready for Gate',
-            ),
+            label: Text(canProcess ? 'Process Next Vehicle' : 'Ready for Gate'),
           ),
         ],
       ),
@@ -442,9 +435,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
     return Container(
       padding: const EdgeInsets.all(17),
       decoration: BoxDecoration(
-        color: complete
-            ? const Color(0xFFE8F5E9)
-            : Colors.white,
+        color: complete ? const Color(0xFFE8F5E9) : Colors.white,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Colors.grey.shade200),
       ),
@@ -452,12 +443,8 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
-            complete
-                ? Icons.check_circle_rounded
-                : Icons.route_outlined,
-            color: complete
-                ? AppTheme.primaryGreen
-                : AppTheme.accentOrange,
+            complete ? Icons.check_circle_rounded : Icons.route_outlined,
+            color: complete ? AppTheme.primaryGreen : AppTheme.accentOrange,
           ),
           const SizedBox(width: 11),
           Expanded(
@@ -523,19 +510,13 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
             const SizedBox(height: 12),
             const Text(
               'No active booking',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 5),
             Text(
               'The staff queue is empty in this demo.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.grey.shade600,
-                fontSize: 12,
-              ),
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
             ),
           ],
         ),
@@ -612,17 +593,13 @@ class _StatusPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
       decoration: BoxDecoration(
-        color: paid
-            ? const Color(0xFFE8F5E9)
-            : AppTheme.lightOrange,
+        color: paid ? const Color(0xFFE8F5E9) : AppTheme.lightOrange,
         borderRadius: BorderRadius.circular(9),
       ),
       child: Text(
         status.label,
         style: TextStyle(
-          color: paid
-              ? AppTheme.primaryGreen
-              : AppTheme.accentOrange,
+          color: paid ? AppTheme.primaryGreen : AppTheme.accentOrange,
           fontSize: 8,
           fontWeight: FontWeight.w900,
         ),
@@ -636,11 +613,7 @@ class _InfoRow extends StatelessWidget {
   final String value;
   final bool isLast;
 
-  const _InfoRow(
-    this.label,
-    this.value, {
-    this.isLast = false,
-  });
+  const _InfoRow(this.label, this.value, {this.isLast = false});
 
   @override
   Widget build(BuildContext context) {
@@ -662,10 +635,7 @@ class _InfoRow extends StatelessWidget {
             child: Text(
               value,
               textAlign: TextAlign.end,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-              ),
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
             ),
           ),
         ],

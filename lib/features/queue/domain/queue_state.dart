@@ -1,4 +1,5 @@
 import 'queue_status.dart';
+import 'queue_engine.dart';
 
 class QueueState {
   final String token;
@@ -26,8 +27,11 @@ class QueueState {
   });
 
   int get estimatedWaitMinutes {
-    return (queuePosition * averageProcessingTimeMinutes) +
-        centreDelayBufferMinutes;
+    return QueueEngine.calculateEta(
+      queuePosition: queuePosition,
+      averageProcessingTimeMinutes: averageProcessingTimeMinutes,
+      centreDelayBufferMinutes: centreDelayBufferMinutes,
+    );
   }
 
   QueueState copyWith({

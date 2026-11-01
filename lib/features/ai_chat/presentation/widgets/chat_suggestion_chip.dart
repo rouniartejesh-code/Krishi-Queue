@@ -18,21 +18,12 @@ class ChatSuggestionChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return ActionChip(
       onPressed: onTap,
-      avatar: Icon(
-        icon,
-        size: 17,
-        color: AppTheme.primaryGreen,
-      ),
+      avatar: Icon(icon, size: 17, color: AppTheme.primaryGreen),
       label: Text(label),
-      labelStyle: const TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w700,
-      ),
+      labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
       backgroundColor: const Color(0xFFE8F5E9),
       side: BorderSide.none,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     );
   }
 }

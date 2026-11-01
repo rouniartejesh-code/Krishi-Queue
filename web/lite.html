@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="hi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#245b3b"><meta name="description" content="Krishi Queue light: offline visit preparation and farmer help for Chhattisgarh."><title>Krishi Queue · हल्का संस्करण</title><link rel="stylesheet" href="offline.css"></head>
+<body><main>
+<header><div class="row between"><strong>KRISHI QUEUE</strong><button id="language" class="no-print" type="button">English</button></div><h1 data-t="title">खेत से केंद्र तक, तैयारी के साथ।</h1><p data-t="intro">कम डेटा वाला संस्करण। यात्रा की तैयारी और जरूरी मदद, बिना लॉगिन।</p><a class="no-print" href="index.html?full=1" data-t="full">पूरा ऐप खोलें</a></header>
+<div class="hint" data-t="warning">यह सरकारी सेवा नहीं है। यहाँ सहेजी तैयारी से टोकन या स्लॉट बुक नहीं होता। निकलने से पहले अपनी समिति से पुष्टि करें।</div>
+<p class="muted" id="offline-state" role="status" data-t="offline">पहली बार खुलने के बाद यह हल्का पेज ऑफलाइन रखने की कोशिश करेगा।</p>
+<section aria-labelledby="plan-heading"><h2 id="plan-heading" data-t="plan">मेरी यात्रा की तैयारी</h2><p class="muted" data-t="local">केवल इस ब्राउज़र में सहेजा जाएगा। पूरे ऐप से साझा नहीं होता। बैंक विवरण, आधार, पिन या OTP न लिखें।</p>
+<form id="plan-form">
+<label for="centre" data-t="centre">पंजीकृत समिति / केंद्र</label><input id="centre" name="centre" required maxlength="120" autocomplete="off">
+<label for="village" data-t="village">गाँव / जिला (वैकल्पिक)</label><input id="village" name="village" maxlength="100" autocomplete="off">
+<label for="crop" data-t="crop">फसल</label><input id="crop" name="crop" required maxlength="80" value="धान">
+<label for="quantity" data-t="quantity">मात्रा (क्विंटल, 1 क्विंटल = 100 किलो)</label><input id="quantity" name="quantity" type="number" min="0.01" max="10000" step="0.01" required inputmode="decimal">
+<label for="date" data-t="date">सोची गई तारीख (आरक्षण नहीं)</label><input id="date" name="date" type="date" required>
+<label class="check"><input name="registration" type="checkbox"><span data-t="registration">समिति से पंजीकरण और पात्रता पूछ ली</span></label>
+<label class="check"><input name="token" type="checkbox"><span data-t="token">आधिकारिक टोकन, केंद्र और तारीख पक्की की</span></label>
+<label class="check"><input name="documents" type="checkbox"><span data-t="documents">समिति द्वारा माँगे गए दस्तावेज तैयार हैं</span></label>
+<label class="check"><input name="quality" type="checkbox"><span data-t="quality">नमी, गुणवत्ता और बोरों के नियम पूछ लिए</span></label>
+<label class="check"><input name="transport" type="checkbox"><span data-t="transport">गाड़ी का खर्च और पहुँचने का समय तय किया</span></label>
+<label class="check"><input name="receipts" type="checkbox"><span data-t="receipts">तौल, गुणवत्ता और खरीद की रसीद रखूँगा/रखूँगी</span></label>
+<div class="row no-print"><button class="primary" data-t="save">इस ब्राउज़र में सहेजें</button><button type="button" id="print" data-t="print">कागज़ / PDF के लिए प्रिंट</button><button type="button" id="clear" class="danger" data-t="clear">तैयारी हटाएँ</button></div>
+<p id="save-state" class="status" role="status" aria-live="polite"></p>
+</form></section>
+<section aria-labelledby="help-heading"><h2 id="help-heading" data-t="help">जरूरी मदद</h2>
+<details><summary data-t="helpTokenTitle">टोकन या पंजीकरण</summary><p data-t="helpToken">अपनी पंजीकृत समिति और छत्तीसगढ़ खाद्य विभाग से वर्तमान नियम पूछें। Krishi Queue सरकारी टोकन की जाँच या बुकिंग नहीं करता।</p><a href="https://fcs.cg.gov.in/" rel="noopener noreferrer" data-t="food">छत्तीसगढ़ खाद्य विभाग</a></details>
+<details><summary data-t="helpPaymentTitle">भुगतान नहीं आया</summary><p data-t="helpPayment">खरीद पर्ची, तौल रसीद, तारीख और खरीद संदर्भ रखें। समिति से भुगतान की स्थिति और बैंक संदर्भ माँगें, फिर बैंक से मिलान करें। शिकायत का नंबर और तारीख लिखें। पैसे पाने के लिए OTP या UPI पिन न दें।</p></details>
+<details><summary data-t="helpQualityTitle">तौल या गुणवत्ता पर सवाल</summary><p data-t="helpQuality">तौल, कटौती और ग्रेड लिखित में माँगें। गीला या खराब अनाज अलग रखें। नमी की सीमा, दोबारा जाँच और अपील की प्रक्रिया समिति से पूछें। ऐप कोई खरीद मूल्य या स्वीकार्यता की गारंटी नहीं देता।</p></details>
+<details><summary data-t="helpCropTitle">फसल की बीमारी या खेती की सलाह</summary><p data-t="helpCrop">फसल, लक्षण, उम्र और गाँव की जानकारी लेकर कृषि विशेषज्ञ या किसान कॉल सेंटर से बात करें। सिर्फ चैट के आधार पर दवा या मात्रा तय न करें।</p></details>
+<details><summary data-t="helpFraudTitle">साझा फ़ोन और धोखाधड़ी</summary><p data-t="helpFraud">आधार, बैंक नंबर, OTP या पिन इस ऐप में न लिखें। किसी को भुगतान या पक्का टोकन दिलाने के लिए निजी खाते में पैसा न भेजें। साझा फ़ोन पर काम के बाद तैयारी हटाएँ।</p></details>
+<p><a href="tel:18001801551" data-t="callKisan">किसान कॉल सेंटर: 1800-180-1551</a><br><small data-t="hours">रोज़ सुबह 6 से रात 10 बजे; खेती की सलाह</small></p>
+<p><a href="tel:18002333663" data-t="callFood">छत्तीसगढ़ खाद्य विभाग: 1800-233-3663</a></p>
+<p class="muted"><a href="https://dackkms.gov.in/" rel="noopener noreferrer" data-t="source">कॉल सेंटर की आधिकारिक जानकारी</a></p>
+</section>
+<section aria-labelledby="chat-heading"><h2 id="chat-heading" data-t="chat">ऑफलाइन सहायक</h2><p data-t="chatIntro">टोकन, तैयारी, भुगतान, तौल या सुरक्षा पर सवाल पूछें। जवाब सहेजी गई सामान्य जानकारी से मिलते हैं; यह लाइव AI या सरकारी स्थिति नहीं है।</p><form id="chat-form"><label for="question" data-t="question">आपका सवाल</label><input id="question" required maxlength="400" autocomplete="off"><button class="primary no-print" data-t="ask">मदद देखें</button></form><p id="answer" class="hint" role="status" aria-live="polite" hidden></p></section>
+<footer><p class="muted" data-t="footer">मुफ़्त तैयारी और जानकारी। केंद्र की उपलब्धता, खरीद दर और पात्रता के लिए आधिकारिक पुष्टि जरूरी है। कोई विज्ञापन या ट्रैकिंग स्क्रिप्ट नहीं।</p><a href="index.html" data-t="back">शुरुआत पर वापस</a></footer>
+</main><script src="lite.js" defer></script></body></html>

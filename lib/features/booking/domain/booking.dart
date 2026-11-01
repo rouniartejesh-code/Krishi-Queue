@@ -40,8 +40,7 @@ class Booking {
 
   int get queuePosition => queueState.queuePosition;
 
-  int get estimatedWaitMinutes =>
-      queueState.estimatedWaitMinutes;
+  int get estimatedWaitMinutes => queueState.estimatedWaitMinutes;
 
   Booking copyWith({
     String? bookingNumber,

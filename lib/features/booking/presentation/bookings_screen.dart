@@ -4,6 +4,7 @@ import '../../../core/theme/app_theme.dart';
 import '../domain/booking.dart';
 import '../domain/booking_repository.dart';
 import '../domain/booking_status.dart';
+import '../../procurement/domain/procurement_status.dart';
 
 class BookingsScreen extends StatefulWidget {
   final BookingRepository repository;
@@ -314,7 +315,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         FilledButton.icon(
-          onPressed: _updating
+          onPressed: _updating || _booking?.procurement.status != ProcurementStatus.paymentPaid
               ? null
               : _completeBooking,
           icon: _updating
@@ -332,7 +333,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
           label: Text(
             _updating
                 ? 'Updating...'
-                : 'Mark Booking Completed',
+                : 'Complete practice booking after payment',
             style: const TextStyle(
               fontWeight: FontWeight.w800,
             ),
@@ -341,7 +342,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
         const SizedBox(height: 10),
         OutlinedButton.icon(
           onPressed:
-              _updating ? null : _cancelBooking,
+              _updating || _booking?.procurement.status != ProcurementStatus.awaitingGate ? null : _cancelBooking,
           icon: const Icon(
             Icons.cancel_outlined,
           ),

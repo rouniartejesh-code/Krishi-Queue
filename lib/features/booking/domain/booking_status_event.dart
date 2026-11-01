@@ -4,8 +4,5 @@ class BookingStatusEvent {
   final BookingStatus status;
   final DateTime timestamp;
 
-  const BookingStatusEvent({
-    required this.status,
-    required this.timestamp,
-  });
+  const BookingStatusEvent({required this.status, required this.timestamp});
 }

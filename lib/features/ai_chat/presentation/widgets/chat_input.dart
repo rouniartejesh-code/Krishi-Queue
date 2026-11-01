@@ -1,16 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/settings/app_preferences.dart';
 
 class ChatInput extends StatefulWidget {
   final bool enabled;
   final ValueChanged<String> onSend;
 
-  const ChatInput({
-    super.key,
-    required this.enabled,
-    required this.onSend,
-  });
+  const ChatInput({super.key, required this.enabled, required this.onSend});
 
   @override
   State<ChatInput> createState() => _ChatInputState();
@@ -59,9 +56,12 @@ class _ChatInputState extends State<ChatInput> {
                 maxLines: 4,
                 textInputAction: TextInputAction.newline,
                 onSubmitted: (_) => _send(),
-                decoration: const InputDecoration(
-                  hintText: 'Ask about Krishi Queue...',
-                  contentPadding: EdgeInsets.symmetric(
+                maxLength: 1000,
+                decoration: InputDecoration(
+                  counterText: '',
+                  hintText: AppPreferences.of(context)
+                      .text('Type your question…', 'अपना सवाल लिखें…'),
+                  contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 13,
                   ),
@@ -69,23 +69,15 @@ class _ChatInputState extends State<ChatInput> {
               ),
             ),
             const SizedBox(width: 8),
-            Material(
-              color: widget.enabled
-                  ? AppTheme.primaryGreen
-                  : AppTheme.textSecondary,
-              borderRadius: BorderRadius.circular(16),
-              child: InkWell(
-                onTap: _send,
-                borderRadius: BorderRadius.circular(16),
-                child: const SizedBox(
-                  width: 52,
-                  height: 52,
-                  child: Icon(
-                    Icons.arrow_upward_rounded,
-                    color: Colors.white,
-                  ),
-                ),
+            IconButton.filled(
+              tooltip: AppPreferences.of(context)
+                  .text('Send question', 'सवाल भेजें'),
+              onPressed: widget.enabled ? _send : null,
+              style: IconButton.styleFrom(
+                minimumSize: const Size(52, 52),
+                backgroundColor: AppTheme.primaryGreen,
               ),
+              icon: const Icon(Icons.arrow_upward_rounded),
             ),
           ],
         ),

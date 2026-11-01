@@ -12,18 +12,15 @@ class QueueEngine {
     }
 
     if (averageProcessingTimeMinutes < 0) {
-      throw ArgumentError(
-        'Average processing time cannot be negative.',
-      );
+      throw ArgumentError('Average processing time cannot be negative.');
     }
 
     if (centreDelayBufferMinutes < 0) {
-      throw ArgumentError(
-        'Centre delay buffer cannot be negative.',
-      );
+      throw ArgumentError('Centre delay buffer cannot be negative.');
     }
 
-    return (queuePosition * averageProcessingTimeMinutes) +
+    final farmersAhead = queuePosition > 0 ? queuePosition - 1 : 0;
+    return (farmersAhead * averageProcessingTimeMinutes) +
         centreDelayBufferMinutes;
   }
 
@@ -38,8 +35,6 @@ class QueueEngine {
       );
     }
 
-    return current.copyWith(
-      queuePosition: newPosition,
-    );
+    return current.copyWith(queuePosition: newPosition);
   }
 }

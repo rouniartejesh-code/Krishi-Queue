@@ -1,0 +1,6 @@
+// Merge this match into your existing Firestore rules under
+// match /databases/{database}/documents. Do not replace unrelated rules.
+// Admin SDK in Cloud Functions bypasses these client rules.
+match /_serviceQuota/{document} {
+  allow read, write: if false;
+}

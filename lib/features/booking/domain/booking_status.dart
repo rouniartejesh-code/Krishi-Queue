@@ -1,8 +1,4 @@
-enum BookingStatus {
-  confirmed,
-  cancelled,
-  completed,
-}
+enum BookingStatus { confirmed, cancelled, completed }
 
 extension BookingStatusLabel on BookingStatus {
   String get label {

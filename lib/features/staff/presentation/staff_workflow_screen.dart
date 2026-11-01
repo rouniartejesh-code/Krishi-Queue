@@ -11,10 +11,7 @@ import '../../procurement/domain/procurement_status.dart';
 class StaffWorkflowScreen extends StatefulWidget {
   final BookingRepository repository;
 
-  const StaffWorkflowScreen({
-    super.key,
-    required this.repository,
-  });
+  const StaffWorkflowScreen({super.key, required this.repository});
 
   @override
   State<StaffWorkflowScreen> createState() => _StaffWorkflowScreenState();
@@ -111,16 +108,12 @@ class _StaffWorkflowScreenState extends State<StaffWorkflowScreen> {
 
     if (!ProcurementEngine.canAdvance(status)) return;
 
-    if (!_driverAssigned) {
+    if (status == ProcurementStatus.awaitingGate &&
+        _driverAssigned &&
+        !_driverArrived) {
       setState(() {
-        _errorMessage = 'Assign a driver before processing this booking.';
-      });
-      return;
-    }
-
-    if (!_driverArrived) {
-      setState(() {
-        _errorMessage = 'Mark the assigned driver as arrived before gate processing.';
+        _errorMessage =
+            'Mark the assigned driver as arrived before gate processing.';
       });
       return;
     }
@@ -181,9 +174,7 @@ class _StaffWorkflowScreenState extends State<StaffWorkflowScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     final booking = _booking;
@@ -202,7 +193,8 @@ class _StaffWorkflowScreenState extends State<StaffWorkflowScreen> {
 
     final status = booking.procurement.status;
     final complete = status == ProcurementStatus.paymentPaid;
-    final gateLocked = status == ProcurementStatus.awaitingGate &&
+    final gateLocked =
+        status == ProcurementStatus.awaitingGate &&
         booking.queueState.queuePosition > 1;
 
     return Scaffold(
@@ -228,10 +220,7 @@ class _StaffWorkflowScreenState extends State<StaffWorkflowScreen> {
             const SizedBox(height: 20),
             const Text(
               'Operational Workflow',
-              style: TextStyle(
-                fontSize: 19,
-                fontWeight: FontWeight.w800,
-              ),
+              style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 12),
             _buildTimeline(status),
@@ -240,9 +229,7 @@ class _StaffWorkflowScreenState extends State<StaffWorkflowScreen> {
             const SizedBox(height: 18),
             if (!complete)
               FilledButton.icon(
-                onPressed: _advancing || gateLocked
-                    ? null
-                    : _advanceWorkflow,
+                onPressed: _advancing || gateLocked ? null : _advanceWorkflow,
                 icon: _advancing
                     ? const SizedBox(
                         width: 18,
@@ -261,8 +248,8 @@ class _StaffWorkflowScreenState extends State<StaffWorkflowScreen> {
                   _advancing
                       ? 'Updating...'
                       : gateLocked
-                          ? 'Waiting for Queue #1'
-                          : _nextAction(status),
+                      ? 'Waiting for Queue #1'
+                      : _nextAction(status),
                   style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
               )
@@ -301,17 +288,12 @@ class _StaffWorkflowScreenState extends State<StaffWorkflowScreen> {
       decoration: BoxDecoration(
         color: AppTheme.lightOrange,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: AppTheme.accentOrange.withValues(alpha: .35),
-        ),
+        border: Border.all(color: AppTheme.accentOrange.withValues(alpha: .35)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.warning_amber_rounded,
-            color: AppTheme.accentOrange,
-          ),
+          const Icon(Icons.warning_amber_rounded, color: AppTheme.accentOrange),
           const SizedBox(width: 11),
           Expanded(
             child: Column(
@@ -319,10 +301,7 @@ class _StaffWorkflowScreenState extends State<StaffWorkflowScreen> {
               children: [
                 const Text(
                   'Action unavailable',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w900,
-                  ),
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -409,18 +388,12 @@ class _StaffWorkflowScreenState extends State<StaffWorkflowScreen> {
           children: [
             const Text(
               'Driver & Arrival',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 6),
             const Text(
-              'Demo assignment is persisted on the shared booking record.',
-              style: TextStyle(
-                color: AppTheme.textSecondary,
-                fontSize: 11,
-              ),
+              'Driver assignment is optional. Farmers using their own transport can proceed to gate verification. This is a practice workflow.',
+              style: TextStyle(color: AppTheme.textSecondary, fontSize: 11),
             ),
             const SizedBox(height: 14),
             Row(
@@ -457,9 +430,7 @@ class _StaffWorkflowScreenState extends State<StaffWorkflowScreen> {
                         ? null
                         : _markDriverArrived,
                     icon: const Icon(Icons.login_rounded),
-                    label: Text(
-                      _driverArrived ? 'Arrived' : 'Mark Arrived',
-                    ),
+                    label: Text(_driverArrived ? 'Arrived' : 'Mark Arrived'),
                   ),
                 ),
               ],
@@ -515,10 +486,7 @@ class _StaffWorkflowScreenState extends State<StaffWorkflowScreen> {
           children: [
             const Text(
               'Operational Records',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 13),
             _InfoRow(
@@ -622,9 +590,7 @@ class _TimelineRow extends StatelessWidget {
                 width: 28,
                 height: 28,
                 decoration: BoxDecoration(
-                  color: done
-                      ? AppTheme.primaryGreen
-                      : Colors.grey.shade200,
+                  color: done ? AppTheme.primaryGreen : Colors.grey.shade200,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -637,9 +603,7 @@ class _TimelineRow extends StatelessWidget {
                 Container(
                   width: 2,
                   height: 34,
-                  color: done
-                      ? AppTheme.primaryGreen
-                      : Colors.grey.shade300,
+                  color: done ? AppTheme.primaryGreen : Colors.grey.shade300,
                 ),
             ],
           ),
@@ -652,14 +616,12 @@ class _TimelineRow extends StatelessWidget {
               title,
               style: TextStyle(
                 fontSize: 14,
-                fontWeight: done || active
-                    ? FontWeight.w800
-                    : FontWeight.w600,
+                fontWeight: done || active ? FontWeight.w800 : FontWeight.w600,
                 color: active
                     ? AppTheme.primaryGreen
                     : done
-                        ? AppTheme.textPrimary
-                        : AppTheme.textSecondary,
+                    ? AppTheme.textPrimary
+                    : AppTheme.textSecondary,
               ),
             ),
           ),
@@ -686,9 +648,7 @@ class _DriverStep extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: done
-              ? const Color(0xFFE8F5E9)
-              : Colors.grey.shade50,
+          color: done ? const Color(0xFFE8F5E9) : Colors.grey.shade50,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: done
@@ -701,9 +661,7 @@ class _DriverStep extends StatelessWidget {
             Icon(
               done ? Icons.check_circle_rounded : icon,
               size: 20,
-              color: done
-                  ? AppTheme.primaryGreen
-                  : AppTheme.textSecondary,
+              color: done ? AppTheme.primaryGreen : AppTheme.textSecondary,
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -727,11 +685,7 @@ class _InfoRow extends StatelessWidget {
   final String value;
   final bool isLast;
 
-  const _InfoRow(
-    this.label,
-    this.value, {
-    this.isLast = false,
-  });
+  const _InfoRow(this.label, this.value, {this.isLast = false});
 
   @override
   Widget build(BuildContext context) {
@@ -753,10 +707,7 @@ class _InfoRow extends StatelessWidget {
             child: Text(
               value,
               textAlign: TextAlign.end,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-              ),
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
             ),
           ),
         ],

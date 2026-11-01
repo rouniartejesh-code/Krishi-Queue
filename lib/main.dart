@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 import 'firebase_options.dart';
 
 import 'core/theme/app_theme.dart';
+import 'core/settings/app_preferences.dart';
+import 'core/widgets/practice_banner.dart';
+import 'features/auth/data/auth_service.dart';
+import 'features/visit/data/visit_plan_store.dart';
+import 'features/visit/presentation/visit_planner_screen.dart';
 
 import 'features/auth/domain/user_role.dart';
 import 'features/auth/presentation/login_screen.dart';
@@ -33,11 +38,12 @@ import 'features/queue/domain/queue_engine.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await AppPreferences.instance.load();
 
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
-    );
+    ).timeout(const Duration(seconds: 10));
   } catch (error) {
     // Keep the app shell available when Firebase is not configured for the
     // current platform. The login screen reports that phone sign-in is off.
@@ -52,11 +58,35 @@ class KrishiQueueApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Krishi Queue',
-      theme: AppTheme.lightTheme(),
-      home: const AuthGate(),
+    final preferences = AppPreferences.instance;
+    return AppPreferencesScope(
+      preferences: preferences,
+      child: AnimatedBuilder(
+        animation: preferences,
+        builder: (context, _) => MaterialApp(
+          debugShowCheckedModeBanner: false,
+          title: 'Krishi Queue',
+          theme: AppTheme.lightTheme(),
+          locale: Locale(preferences.hindi ? 'hi' : 'en'),
+          supportedLocales: const [Locale('hi'), Locale('en')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          builder: (context, child) {
+            final media = MediaQuery.of(context);
+            // Respect device accessibility settings; the app toggle adds a larger
+            // minimum without reducing the user's chosen system text size.
+            final scale = media.textScaler.scale(1);
+            return MediaQuery(
+              data: media.copyWith(
+                textScaler: preferences.largeText && scale < 1.25
+                    ? const TextScaler.linear(1.25)
+                    : media.textScaler,
+              ),
+              child: child!,
+            );
+          },
+          home: const AuthGate(),
+        ),
+      ),
     );
   }
 }
@@ -70,9 +100,14 @@ class AuthGate extends StatefulWidget {
 
 class _AuthGateState extends State<AuthGate> {
   UserRole? _role;
+  bool _restoring = true;
+  bool _guest = false;
+  AuthService? _authService;
+  int _sessionGeneration = 0;
+  final Map<String, VisitPlanStore> _visitStores = {};
 
-  late final BookingRepository _bookingRepository;
-  late final MarketPriceRepository _marketPriceRepository;
+  late BookingRepository _bookingRepository;
+  late final MarketPriceRepositoryImpl _marketPriceRepository;
   late final GeminiAiChatApi _aiChatApi;
   late final FarmerNewsApi _farmerNewsApi;
 
@@ -81,37 +116,106 @@ class _AuthGateState extends State<AuthGate> {
     super.initState();
 
     _bookingRepository = BookingRepositoryImpl(demoBooking);
-    _marketPriceRepository = const MarketPriceRepositoryImpl();
+    _marketPriceRepository = MarketPriceRepositoryImpl();
     _aiChatApi = GeminiAiChatApi();
     _farmerNewsApi = FarmerNewsApi();
+    _authService = AuthService.tryCreate();
+    _restoreSession();
+  }
+
+  Future<void> _restoreSession() async {
+    final generation = _sessionGeneration;
+    UserRole? role;
+    try {
+      role = await _authService?.currentRole();
+    } catch (_) {
+      // Offline help remains available when a cached session needs refreshing.
+    }
+    if (mounted && generation == _sessionGeneration && !_guest) {
+      setState(() {
+        _role = role;
+        _restoring = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _marketPriceRepository.dispose();
+    _aiChatApi.dispose();
+    _farmerNewsApi.dispose();
+    super.dispose();
+  }
+
+  VisitPlanStore get _planStore {
+    final owner = _guest
+        ? 'guest'
+        : (_authService?.auth.currentUser?.uid ?? 'guest');
+    return _visitStores.putIfAbsent(owner, () => VisitPlanStore(owner: owner));
+  }
+
+  void _continueOffline() => setState(() {
+    _sessionGeneration++;
+    _guest = true;
+    _role = UserRole.farmer;
+    _restoring = false;
+  });
+
+  void _openPlan() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => VisitPlannerScreen(store: _planStore),
+      ),
+    );
   }
 
   void _handleLoginSuccess(UserRole role) {
+    _sessionGeneration++;
+    _authService ??= AuthService.tryCreate();
     setState(() {
       _role = role;
+      _guest = false;
+      _bookingRepository = BookingRepositoryImpl(demoBooking);
     });
   }
 
   Future<void> _logout() async {
+    _sessionGeneration++;
     try {
-      await FirebaseAuth.instance.signOut();
+      await _authService?.signOut();
     } catch (_) {
-      // Clear the local session even if Firebase sign-out is unavailable.
+      if (!mounted) return;
+      final p = AppPreferences.of(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            p.text(
+              'Could not sign out. Please try again before sharing this phone.',
+              'साइन आउट नहीं हो सका। फ़ोन देने से पहले फिर कोशिश करें।',
+            ),
+          ),
+        ),
+      );
+      return;
     }
 
     if (!mounted) return;
     setState(() {
       _role = null;
+      _guest = false;
+      _bookingRepository = BookingRepositoryImpl(demoBooking);
     });
   }
 
   void _openBooking() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => BookingScreen(
-          repository: _bookingRepository,
-          marketPriceRepository: _marketPriceRepository,
-          onBookingConfirmed: _openToken,
+        builder: (_) => PracticePage(
+          child: BookingScreen(
+            repository: _bookingRepository,
+            marketPriceRepository: _marketPriceRepository,
+            onBookingConfirmed: _openToken,
+          ),
         ),
       ),
     );
@@ -120,7 +224,8 @@ class _AuthGateState extends State<AuthGate> {
   void _openToken() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => TokenScreen(repository: _bookingRepository),
+        builder: (_) =>
+            PracticePage(child: TokenScreen(repository: _bookingRepository)),
       ),
     );
   }
@@ -128,7 +233,9 @@ class _AuthGateState extends State<AuthGate> {
   void _openTrackQueue() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => TrackQueueScreen(repository: _bookingRepository),
+        builder: (_) => PracticePage(
+          child: TrackQueueScreen(repository: _bookingRepository),
+        ),
       ),
     );
   }
@@ -144,7 +251,8 @@ class _AuthGateState extends State<AuthGate> {
   void _openPayment() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => PaymentScreen(repository: _bookingRepository),
+        builder: (_) =>
+            PracticePage(child: PaymentScreen(repository: _bookingRepository)),
       ),
     );
   }
@@ -153,13 +261,43 @@ class _AuthGateState extends State<AuthGate> {
   Widget build(BuildContext context) {
     final role = _role;
 
+    if (_restoring) {
+      final p = AppPreferences.of(context);
+      return Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 20),
+                Text(p.text('Opening Krishi Queue…', 'कृषि क्यू खुल रहा है…')),
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: _continueOffline,
+                  child: Text(
+                    p.text('Use offline help now', 'अभी ऑफलाइन सहायता खोलें'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     if (role == null) {
-      return LoginScreen(onLoginSuccess: _handleLoginSuccess);
+      return LoginScreen(
+        onLoginSuccess: _handleLoginSuccess,
+        onContinueOffline: _continueOffline,
+      );
     }
 
     switch (role) {
       case UserRole.farmer:
         return HomeScreen(
+          key: ValueKey(_guest ? 'guest' : _authService?.auth.currentUser?.uid),
           repository: _bookingRepository,
           onBookSlot: _openBooking,
           onTokenTap: _openToken,
@@ -173,24 +311,32 @@ class _AuthGateState extends State<AuthGate> {
             api: _aiChatApi,
           ),
           onLogout: _logout,
+          onPlanVisit: _openPlan,
+          onClearLocalData: () => _planStore.clear(),
         );
 
       case UserRole.staff:
-        return StaffDashboardScreen(
-          repository: _bookingRepository,
-          onLogout: _logout,
+        return PracticePage(
+          child: StaffDashboardScreen(
+            repository: _bookingRepository,
+            onLogout: _logout,
+          ),
         );
 
       case UserRole.driver:
-        return DriverDashboardScreen(
-          repository: _bookingRepository,
-          onLogout: _logout,
+        return PracticePage(
+          child: DriverDashboardScreen(
+            repository: _bookingRepository,
+            onLogout: _logout,
+          ),
         );
 
       case UserRole.admin:
-        return AdminDashboardScreen(
-          repository: _bookingRepository,
-          onLogout: _logout,
+        return PracticePage(
+          child: AdminDashboardScreen(
+            repository: _bookingRepository,
+            onLogout: _logout,
+          ),
         );
     }
   }
@@ -256,7 +402,8 @@ class _TokenScreenState extends State<TokenScreen> {
   void _openProcurement() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => ProcurementScreen(repository: _repository),
+        builder: (_) =>
+            PracticePage(child: ProcurementScreen(repository: _repository)),
       ),
     );
   }
@@ -292,7 +439,7 @@ class _TokenScreenState extends State<TokenScreen> {
               child: Column(
                 children: [
                   const Text(
-                    'YOUR PROCUREMENT TOKEN',
+                    'PRACTICE TOKEN · NOT VALID FOR PROCUREMENT',
                     style: TextStyle(
                       color: Colors.white70,
                       fontSize: 12,
@@ -317,7 +464,7 @@ class _TokenScreenState extends State<TokenScreen> {
                       borderRadius: BorderRadius.circular(18),
                     ),
                     child: QrImageView(
-                      data: queue.token,
+                      data: 'KRISHI-QUEUE-PRACTICE-NOT-VALID:${queue.token}',
                       size: 190,
                       backgroundColor: Colors.white,
                     ),

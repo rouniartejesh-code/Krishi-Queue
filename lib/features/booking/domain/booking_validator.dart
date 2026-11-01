@@ -23,9 +23,7 @@ class BookingValidator {
     }
 
     if (booking.quantityQtl <= 0) {
-      throw ArgumentError(
-        'Quantity must be greater than zero.',
-      );
+      throw ArgumentError('Quantity must be greater than zero.');
     }
 
     if (booking.deliveryDate.trim().isEmpty) {
@@ -37,9 +35,15 @@ class BookingValidator {
     }
 
     if (booking.queueState.queuePosition < 1) {
-      throw ArgumentError(
-        'Queue position must be at least 1.',
-      );
+      throw ArgumentError('Queue position must be at least 1.');
+    }
+    if (booking.queueState.quantityQuintals != booking.quantityQtl ||
+        booking.queueState.deliveryDate != booking.deliveryDate) {
+      throw ArgumentError('Token details must match the booking.');
+    }
+    if (booking.queueState.averageProcessingTimeMinutes < 0 ||
+        booking.queueState.centreDelayBufferMinutes < 0) {
+      throw ArgumentError('Queue timing cannot be negative.');
     }
   }
 }

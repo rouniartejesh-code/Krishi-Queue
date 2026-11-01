@@ -54,10 +54,9 @@ class BookingCreator {
         ),
       ],
       procurement: ProcurementState(
-        marketReferenceModalPricePerQtl:
-            marketReferenceModalPricePerQtl,
-        procurementRatePerQtl: procurementRatePerQtl ??
-            _demoProcurementRateForCrop(crop),
+        marketReferenceModalPricePerQtl: marketReferenceModalPricePerQtl,
+        procurementRatePerQtl:
+            procurementRatePerQtl ?? _demoProcurementRateForCrop(crop),
       ),
     );
 

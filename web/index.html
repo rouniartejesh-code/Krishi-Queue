@@ -1,46 +1,43 @@
 <!DOCTYPE html>
-<html>
+<html lang="hi">
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
   <base href="$FLUTTER_BASE_HREF">
-
   <meta charset="UTF-8">
-  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
-
-  <!-- iOS meta tags & icons -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Krishi Queue: low-data farmer help and visit preparation for Chhattisgarh.">
+  <meta name="theme-color" content="#245b3b">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="krishi_queue">
+  <meta name="apple-mobile-web-app-title" content="Krishi Queue">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
-
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="favicon.png"/>
-
-  <title>krishi_queue</title>
+  <link rel="icon" type="image/png" href="favicon.png">
   <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="offline.css">
+  <title>Krishi Queue</title>
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
-
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
-  <script src="flutter_bootstrap.js" async></script>
+  <main id="welcome">
+    <header><strong>KRISHI QUEUE · छत्तीसगढ़</strong><h1>केंद्र जाने से पहले,<br>तैयारी पूरी करें।</h1><p>Prepare before you travel to your procurement centre.</p></header>
+    <section><h2>कम नेटवर्क? हल्का संस्करण खोलें।</h2><p>बिना लॉगिन तैयारी सहेजें, सूची देखें और जरूरी मदद पाएँ। यह छोटा पेज धीमे इंटरनेट के लिए है।</p><p class="muted">Slow connection? Use the light version for a saved visit plan, checklist and help. No sign-in needed.</p><a class="button primary" href="lite.html">हल्का संस्करण · Light version</a></section>
+    <section><h2>पूरा ऐप · Full app</h2><p>साइन इन, बाजार की जानकारी और अतिरिक्त सुविधाएँ। पहली बार खुलने में अधिक डेटा लगेगा।</p><p class="muted">Sign-in, market information and more. The first download uses more data.</p><button id="open-full" type="button">पूरा ऐप खोलें · Open full app</button><p id="load-status" role="status"></p></section>
+    <p class="hint">यह सरकारी टोकन सेवा नहीं है। अपनी समिति से तारीख, टोकन और पात्रता की पुष्टि करें।<br>This app does not issue government tokens.</p>
+  </main>
+  <script>
+    function openFullApp() {
+      const button = document.getElementById('open-full');
+      if (button.disabled) return;
+      button.disabled = true;
+      document.getElementById('load-status').textContent = 'ऐप खुल रहा है… धीमे नेटवर्क पर हल्का संस्करण चुन सकते हैं। / Loading… The light version remains available above.';
+      const script = document.createElement('script');
+      script.src = 'flutter_bootstrap.js';
+      script.onerror = () => {
+        button.disabled = false;
+        document.getElementById('load-status').textContent = 'ऐप डाउनलोड नहीं हुआ। फिर कोशिश करें या हल्का संस्करण खोलें। / Download failed. Retry or open the light version.';
+        script.remove();
+      };
+      document.body.appendChild(script);
+    }
+    document.getElementById('open-full').addEventListener('click', openFullApp);
+    if (new URLSearchParams(location.search).get('full') === '1') openFullApp();
+  </script>
 </body>
 </html>

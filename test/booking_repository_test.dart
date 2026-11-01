@@ -1,8 +1,8 @@
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:krishi_queue/features/booking/data/booking_repository_impl.dart';
 import 'package:krishi_queue/features/booking/data/demo_booking.dart';
 import 'package:krishi_queue/features/booking/domain/booking_status.dart';
+import 'package:krishi_queue/features/procurement/domain/procurement_status.dart';
 
 void main() {
   group('BookingRepositoryImpl', () {
@@ -27,7 +27,14 @@ void main() {
     });
 
     test('completes a confirmed booking and persists the change', () async {
-      final repository = BookingRepositoryImpl(demoBooking);
+      final repository = BookingRepositoryImpl(
+        demoBooking.copyWith(
+          procurement: demoBooking.procurement.copyWith(
+            status: ProcurementStatus.paymentPaid,
+            paymentReference: 'DEMO-PAID',
+          ),
+        ),
+      );
 
       final booking = await repository.completeBooking();
       final storedBooking = await repository.getBooking();
@@ -40,9 +47,7 @@ void main() {
     test('rejects an invalid booking update', () async {
       final repository = BookingRepositoryImpl(demoBooking);
 
-      final invalidBooking = demoBooking.copyWith(
-        quantityQtl: 0,
-      );
+      final invalidBooking = demoBooking.copyWith(quantityQtl: 0);
 
       expect(
         () => repository.updateBooking(invalidBooking),

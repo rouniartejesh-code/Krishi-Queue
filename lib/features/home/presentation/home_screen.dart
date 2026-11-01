@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/settings/app_preferences.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/practice_banner.dart';
 import '../../booking/domain/booking.dart';
 import '../../booking/domain/booking_repository.dart';
 import '../../booking/domain/booking_status.dart';
 import '../../booking/presentation/bookings_screen.dart';
+import '../../help/presentation/help_screen.dart';
+import '../../help/presentation/settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final BookingRepository repository;
@@ -13,7 +17,9 @@ class HomeScreen extends StatefulWidget {
   final VoidCallback? onTrackQueueTap;
   final VoidCallback? onMarketPriceTap;
   final VoidCallback? onPaymentTap;
+  final VoidCallback? onPlanVisit;
   final VoidCallback? onLogout;
+  final Future<void> Function()? onClearLocalData;
   final Widget? newsScreen;
   final Widget? chatScreen;
 
@@ -25,7 +31,9 @@ class HomeScreen extends StatefulWidget {
     this.onTrackQueueTap,
     this.onMarketPriceTap,
     this.onPaymentTap,
+    this.onPlanVisit,
     this.onLogout,
+    this.onClearLocalData,
     this.newsScreen,
     this.chatScreen,
   });
@@ -34,599 +42,491 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _selectedIndex = 0;
+  final Set<int> _visitedTabs = {0};
   Booking? _booking;
   bool _loading = true;
+  bool _loadFailed = false;
+  bool _wasCurrent = false;
+  int _loadGeneration = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadBooking();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final current = ModalRoute.of(context)?.isCurrent ?? true;
+    if (current && !_wasCurrent) _loadBooking();
+    _wasCurrent = current;
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.repository != widget.repository) _loadBooking();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _loadBooking();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   Future<void> _loadBooking() async {
-    final booking = await widget.repository.getBooking();
+    final generation = ++_loadGeneration;
+    try {
+      final booking = await widget.repository.getBooking();
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() {
+        _booking = booking;
+        _loading = false;
+        _loadFailed = false;
+      });
+    } catch (_) {
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() {
+        _loading = false;
+        _loadFailed = true;
+      });
+    }
+  }
 
-    if (!mounted) return;
-
+  void _selectTab(int index) {
     setState(() {
-      _booking = booking;
-      _loading = false;
+      _selectedIndex = index;
+      _visitedTabs.add(index);
     });
+    if (index == 0) _loadBooking();
+  }
+
+  Future<void> _openHelp() async {
+    await Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => const HelpScreen()));
+  }
+
+  Future<void> _openSettings() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            SettingsScreen(onClearLocalData: widget.onClearLocalData),
+      ),
+    );
+    if (mounted) _loadBooking();
   }
 
   @override
   Widget build(BuildContext context) {
+    final p = AppPreferences.of(context);
     return Scaffold(
       body: SafeArea(
         child: IndexedStack(
           index: _selectedIndex,
           children: [
-            _buildHome(),
-            widget.newsScreen ?? const SizedBox.shrink(),
-            widget.chatScreen ?? const SizedBox.shrink(),
-            BookingsScreen(
-              repository: widget.repository,
-              onBookSlot: widget.onBookSlot,
-              onBookingTap: (_) {
-                widget.onTokenTap?.call();
-              },
-            ),
+            _buildHome(p),
+            // Mount each tab only when opened, avoiding hidden startup requests.
+            _visitedTabs.contains(1)
+                ? widget.newsScreen ?? const SizedBox.shrink()
+                : const SizedBox.shrink(),
+            _visitedTabs.contains(2)
+                ? widget.chatScreen ?? const SizedBox.shrink()
+                : const SizedBox.shrink(),
+            if (_visitedTabs.contains(3))
+              Column(
+                children: [
+                  const PracticeBanner(),
+                  Expanded(
+                    child: BookingsScreen(
+                      repository: widget.repository,
+                      onBookSlot: widget.onBookSlot,
+                      onBookingTap: (_) => widget.onTokenTap?.call(),
+                    ),
+                  ),
+                ],
+              )
+            else
+              const SizedBox.shrink(),
           ],
         ),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
-        destinations: const [
+        onDestinationSelected: _selectTab,
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home_rounded),
-            label: 'Home',
+            icon: const Icon(Icons.home_outlined),
+            selectedIcon: const Icon(Icons.home_rounded),
+            label: p.text('Home', 'घर'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.newspaper_outlined),
-            selectedIcon: Icon(Icons.newspaper_rounded),
-            label: 'News',
+            icon: const Icon(Icons.newspaper_outlined),
+            selectedIcon: const Icon(Icons.newspaper_rounded),
+            label: p.text('News', 'समाचार'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.support_agent_outlined),
-            selectedIcon: Icon(Icons.support_agent_rounded),
-            label: 'Chat',
+            icon: const Icon(Icons.chat_bubble_outline),
+            selectedIcon: const Icon(Icons.chat_bubble),
+            label: p.text('Ask', 'पूछें'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.event_note_outlined),
-            selectedIcon: Icon(Icons.event_note_rounded),
-            label: 'Bookings',
+            icon: const Icon(Icons.event_note_outlined),
+            selectedIcon: const Icon(Icons.event_note),
+            label: p.text('Practice', 'अभ्यास'),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildHome() {
-    return RefreshIndicator(
-      onRefresh: _loadBooking,
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 30),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildHeader(),
-            const SizedBox(height: 22),
-            _buildBookingCard(),
-            const SizedBox(height: 20),
-            _buildQuickServices(),
-            const SizedBox(height: 20),
-            _buildInformationCard(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Namaste, Farmer',
-                style: TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+  Widget _buildHome(AppPreferences p) => RefreshIndicator(
+    onRefresh: _loadBooking,
+    child: CustomScrollView(
+      key: const PageStorageKey('farmer-home'),
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverToBoxAdapter(
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 880),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _header(p),
+                    const SizedBox(height: 24),
+                    _visitCard(p),
+                    const SizedBox(height: 24),
+                    Text(
+                      p.text('Useful today', 'आज के काम की बातें'),
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 12),
+                    _actionCard(
+                      icon: Icons.menu_book_outlined,
+                      title: p.text(
+                        'Help, even without internet',
+                        'बिना इंटरनेट भी सहायता',
+                      ),
+                      subtitle: p.text(
+                        'Documents, payments, complaints and helplines',
+                        'कागज़, भुगतान, शिकायत और हेल्पलाइन',
+                      ),
+                      onTap: _openHelp,
+                    ),
+                    const SizedBox(height: 10),
+                    _actionCard(
+                      icon: Icons.chat_bubble_outline,
+                      title: p.text('Ask a question', 'अपना सवाल पूछें'),
+                      subtitle: p.text(
+                        'Simple guidance in Hindi and English',
+                        'हिन्दी और अंग्रेज़ी में आसान सहायता',
+                      ),
+                      onTap: () => _selectTab(2),
+                    ),
+                    const SizedBox(height: 10),
+                    _actionCard(
+                      icon: Icons.currency_rupee,
+                      title: p.text('Check mandi prices', 'मंडी के भाव देखें'),
+                      subtitle: p.text(
+                        'Compare the market and observation date',
+                        'मंडी और भाव की तारीख मिलाकर देखें',
+                      ),
+                      onTap: widget.onMarketPriceTap,
+                    ),
+                    const SizedBox(height: 24),
+                    _centreNotice(p),
+                    const SizedBox(height: 24),
+                    _practiceCard(p),
+                    if (widget.onLogout != null) ...[
+                      const SizedBox(height: 16),
+                      TextButton.icon(
+                        onPressed: widget.onLogout,
+                        icon: const Icon(Icons.logout, size: 20),
+                        label: Text(
+                          p.text(
+                            'Sign out / change account',
+                            'लॉगआउट / खाता बदलें',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-              const SizedBox(height: 4),
-              const Text(
-                'Krishi Queue',
-                style: TextStyle(
-                  fontSize: 25,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-        ),
-        IconButton(
-          onPressed: widget.onLogout,
-          icon: const Icon(Icons.logout_rounded),
-          tooltip: 'Switch role',
-        ),
-        Container(
-          width: 46,
-          height: 46,
-          decoration: BoxDecoration(
-            color: const Color(0xFFE8F5E9),
-            borderRadius: BorderRadius.circular(15),
-          ),
-          child: const Icon(
-            Icons.person_outline_rounded,
-            color: AppTheme.primaryGreen,
+            ),
           ),
         ),
       ],
-    );
-  }
+    ),
+  );
 
-  Widget _buildBookingCard() {
-    if (_loading) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            children: [
-              const CircularProgressIndicator(),
-              const SizedBox(height: 14),
-              Text(
-                'Loading your booking...',
-                style: TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: 12,
-                ),
-              ),
-            ],
+  Widget _header(AppPreferences p) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Row(
+        children: [
+          const Icon(
+            Icons.grass_rounded,
+            size: 28,
+            color: AppTheme.primaryGreen,
           ),
-        ),
-      );
-    }
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'Krishi Queue',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5,
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: _openSettings,
+            icon: const Icon(Icons.tune),
+            tooltip: p.text('Language and settings', 'भाषा और सेटिंग'),
+          ),
+        ],
+      ),
+      const SizedBox(height: 10),
+      Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 10,
+        runSpacing: 6,
+        children: [
+          Text(
+            p.text(
+              'For farmers in Chhattisgarh',
+              'छत्तीसगढ़ के किसानों के लिए',
+            ),
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          OutlinedButton.icon(
+            onPressed: () => p.setHindi(!p.hindi),
+            icon: const Icon(Icons.translate, size: 18),
+            label: Text(p.hindi ? 'English' : 'हिन्दी'),
+            style: OutlinedButton.styleFrom(minimumSize: const Size(90, 44)),
+          ),
+        ],
+      ),
+    ],
+  );
 
-    if (_booking == null) {
-      return _buildNoBookingCard();
-    }
-
-    final booking = _booking!;
-
-    if (booking.status != BookingStatus.confirmed) {
-      return _buildNoBookingCard();
-    }
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
+  Widget _visitCard(AppPreferences p) => Container(
+    padding: const EdgeInsets.all(22),
+    decoration: BoxDecoration(
+      color: AppTheme.darkGreen,
+      borderRadius: BorderRadius.circular(22),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'MY TOKEN',
-                    style: TextStyle(
-                      color: AppTheme.textSecondary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.6,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 9,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE8F5E9),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    booking.status.label,
-                    style: const TextStyle(
-                      color: AppTheme.primaryGreen,
-                      fontSize: 8,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-              ],
+            const Icon(
+              Icons.offline_pin_outlined,
+              color: Color(0xffc9e7d5),
+              size: 20,
             ),
-            const SizedBox(height: 10),
-            Text(
-              booking.token,
-              style: const TextStyle(
-                color: AppTheme.primaryGreen,
-                fontSize: 28,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 18),
-            Row(
-              children: [
-                Expanded(
-                  child: _Metric(
-                    icon: Icons.format_list_numbered_rounded,
-                    label: 'Queue',
-                    value: '#${booking.queuePosition}',
-                  ),
-                ),
-                Expanded(
-                  child: _Metric(
-                    icon: Icons.schedule_rounded,
-                    label: 'ETA',
-                    value: '${booking.estimatedWaitMinutes} min',
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 17),
-            const Divider(height: 1),
-            const SizedBox(height: 15),
-            _BookingInfoRow(
-              icon: Icons.storefront_outlined,
-              value: booking.queueState.centre,
-            ),
-            const SizedBox(height: 9),
-            _BookingInfoRow(
-              icon: Icons.agriculture_outlined,
-              value:
-                  '${booking.queueState.crop} • ${booking.quantityQtl} QTL',
-            ),
-            const SizedBox(height: 9),
-            _BookingInfoRow(
-              icon: Icons.access_time_rounded,
-              value: booking.queueState.slot,
-            ),
-            const SizedBox(height: 17),
-            FilledButton.icon(
-              onPressed: widget.onTokenTap,
-              icon: const Icon(
-                Icons.qr_code_2_rounded,
-              ),
-              label: const Text(
-                'View Token & Track Queue',
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                p.text('Preparation works offline', 'तैयारी बिना इंटरनेट भी'),
+                style: const TextStyle(
+                  color: Color(0xffc9e7d5),
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildNoBookingCard() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(22),
-        child: Column(
-          children: [
-            Container(
-              width: 58,
-              height: 58,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE8F5E9),
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: const Icon(
-                Icons.event_available_outlined,
-                size: 29,
-                color: AppTheme.primaryGreen,
-              ),
-            ),
-            const SizedBox(height: 14),
-            const Text(
-              'No Active Booking',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Book a procurement slot to get your digital token.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppTheme.textSecondary,
-                fontSize: 12,
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 17),
-            FilledButton.icon(
-              onPressed: widget.onBookSlot,
-              icon: const Icon(Icons.add_rounded),
-              label: const Text(
-                'Book Procurement Slot',
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuickServices() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Quick Services',
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w800,
+        const SizedBox(height: 18),
+        Text(
+          p.text(
+            'A little preparation.\nAn easier visit.',
+            'पहले तैयारी।\nफिर केंद्र की यात्रा।',
+          ),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 29,
+            height: 1.28,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.4,
           ),
         ),
         const SizedBox(height: 12),
-
-        Row(
-          children: [
-            Expanded(
-              child: _ServiceTile(
-                icon: Icons.add_box_outlined,
-                title: 'Book Slot',
-                onTap: widget.onBookSlot,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _ServiceTile(
-                icon: Icons.qr_code_2_rounded,
-                title: 'My Token',
-                onTap: widget.onTokenTap,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _ServiceTile(
-                icon: Icons.track_changes_outlined,
-                title: 'Track Queue',
-                onTap: widget.onTrackQueueTap,
-              ),
-            ),
-          ],
+        Text(
+          p.text(
+            'Keep your visit plan and checklist on this phone. Confirm your official token with the centre before leaving.',
+            'यात्रा योजना और तैयारी की सूची इस फोन में रखें। निकलने से पहले केंद्र से सरकारी टोकन की पुष्टि करें।',
+          ),
+          style: const TextStyle(color: Color(0xffe2eee7), height: 1.5),
         ),
-
-        const SizedBox(height: 10),
-
-        Row(
-          children: [
-            Expanded(
-              child: _ServiceTile(
-                icon: Icons.currency_rupee_rounded,
-                title: 'Market Price',
-                onTap: widget.onMarketPriceTap,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _ServiceTile(
-                icon: Icons.account_balance_wallet_outlined,
-                title: 'Payment',
-                onTap: widget.onPaymentTap,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _ServiceTile(
-                icon: Icons.help_outline_rounded,
-                title: 'Help',
-                onTap: () {
-                  setState(() {
-                    _selectedIndex = 1;
-                  });
-                },
-              ),
-            ),
-          ],
+        const SizedBox(height: 22),
+        FilledButton.icon(
+          onPressed: widget.onPlanVisit ?? _openHelp,
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xfff3f3dd),
+            foregroundColor: AppTheme.darkGreen,
+          ),
+          icon: const Icon(Icons.checklist_outlined),
+          label: Text(p.text('Plan my visit', 'यात्रा की तैयारी करें')),
         ),
       ],
-    );
-  }
+    ),
+  );
 
-  Widget _buildInformationCard() {
-    return Container(
-      padding: const EdgeInsets.all(17),
-      decoration: BoxDecoration(
-        color: AppTheme.lightOrange,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: const Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            Icons.info_outline_rounded,
-            color: AppTheme.accentOrange,
-          ),
-          SizedBox(width: 11),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Plan your visit',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                SizedBox(height: 5),
-                Text(
-                  'Book a slot before arriving at the procurement centre to reduce waiting time.',
-                  style: TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontSize: 11,
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Metric extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-
-  const _Metric({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(11),
-          ),
-          child: Icon(
-            icon,
-            size: 18,
-            color: AppTheme.textSecondary,
-          ),
-        ),
-        const SizedBox(width: 9),
-        Column(
+  Widget _actionCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    VoidCallback? onTap,
+  }) => Card(
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              label,
-              style: const TextStyle(
-                color: AppTheme.textSecondary,
-                fontSize: 10,
+            Icon(icon, color: AppTheme.primaryGreen, size: 25),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 4),
+                  Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
+                ],
               ),
             ),
-            const SizedBox(height: 2),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
+            const SizedBox(width: 6),
+            const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
+          ],
+        ),
+      ),
+    ),
+  );
+
+  Widget _centreNotice(AppPreferences p) => Container(
+    padding: const EdgeInsets.all(18),
+    decoration: BoxDecoration(
+      color: AppTheme.paleGreen,
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          p.text('Before paying for a vehicle', 'गाड़ी का किराया देने से पहले'),
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          p.text(
+            'Ask your society: Is the centre open? Is my date confirmed? Which documents should I bring? Keep a paper copy of the official token.',
+            'समिति से पूछें: केंद्र खुला है? मेरी तारीख पक्की है? कौन से कागज़ लाने हैं? सरकारी टोकन की कागज़ी प्रति रखें।',
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextButton.icon(
+          onPressed: _openHelp,
+          icon: const Icon(Icons.call_outlined, size: 18),
+          label: Text(
+            p.text('Help and official contacts', 'सहायता और सरकारी संपर्क'),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _practiceCard(AppPreferences p) => Card(
+    child: ExpansionTile(
+      key: const PageStorageKey('practice-section'),
+      tilePadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+      childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+      title: Text(
+        p.text(
+          'Try the procurement walkthrough',
+          'खरीदी प्रक्रिया का अभ्यास करें',
+        ),
+        style: Theme.of(context).textTheme.titleMedium,
+      ),
+      subtitle: Text(
+        p.text(
+          'Sample data · No government booking',
+          'नमूना जानकारी · सरकारी बुकिंग नहीं',
+        ),
+      ),
+      children: [
+        const PracticeBanner(),
+        const SizedBox(height: 14),
+        if (_loading)
+          const LinearProgressIndicator()
+        else if (_loadFailed) ...[
+          Text(
+            p.text(
+              'Could not load the practice record.',
+              'अभ्यास की जानकारी नहीं खुली।',
+            ),
+          ),
+          TextButton(
+            onPressed: _loadBooking,
+            child: Text(p.text('Try again', 'फिर कोशिश करें')),
+          ),
+        ] else if (_booking case final booking?) ...[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              p.text(
+                'Sample: ${booking.queueState.crop} · ${booking.quantityQtl} quintals',
+                'नमूना: ${booking.queueState.crop} · ${booking.quantityQtl} क्विंटल',
               ),
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ),
+          if (booking.status == BookingStatus.confirmed)
+            TextButton.icon(
+              onPressed: widget.onTokenTap,
+              icon: const Icon(Icons.qr_code_2),
+              label: Text(p.text('View practice token', 'अभ्यास टोकन देखें')),
+            ),
+        ],
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            OutlinedButton(
+              onPressed: widget.onBookSlot,
+              child: Text(p.text('Try booking', 'बुकिंग अभ्यास')),
+            ),
+            OutlinedButton(
+              onPressed: widget.onTrackQueueTap,
+              child: Text(p.text('Sample queue', 'नमूना कतार')),
+            ),
+            OutlinedButton(
+              onPressed: widget.onPaymentTap,
+              child: Text(p.text('Sample payment', 'नमूना भुगतान')),
             ),
           ],
         ),
       ],
-    );
-  }
-}
-
-class _BookingInfoRow extends StatelessWidget {
-  final IconData icon;
-  final String value;
-
-  const _BookingInfoRow({
-    required this.icon,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(
-          icon,
-          size: 17,
-          color: AppTheme.textSecondary,
-        ),
-        const SizedBox(width: 9),
-        Expanded(
-          child: Text(
-            value,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ServiceTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final VoidCallback? onTap;
-
-  const _ServiceTile({
-    required this.icon,
-    required this.title,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 15,
-          ),
-          child: Column(
-            children: [
-              Container(
-                width: 43,
-                height: 43,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE8F5E9),
-                  borderRadius: BorderRadius.circular(13),
-                ),
-                child: Icon(
-                  icon,
-                  color: AppTheme.primaryGreen,
-                  size: 21,
-                ),
-              ),
-              const SizedBox(height: 9),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+    ),
+  );
 }
